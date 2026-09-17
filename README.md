@@ -1,154 +1,146 @@
-# EDS Relógios — Protótipo de E-commerce
+# Cardápio Virtual de Evento
 
-Protótipo navegável de um sistema de e-commerce de relógios, contendo uma área
-administrativa completa, uma vitrine pública de produtos e um fluxo visual de
-checkout. Todo o conteúdo da interface está em **Português do Brasil (pt-BR)**,
-com formatação nacional de moeda, datas e horários.
+Cardápio virtual para organizadores de eventos que vendem produtos
+alimentícios: loja pública acessada via QR Code, carrinho, pagamento via
+[InfinitePay](https://www.infinitepay.io/), pipeline de cozinha (Recebido →
+Fazendo → Pronto → Entregue) atualizado em tempo real, tela pública de
+acompanhamento do pedido com senha, PDV para venda presencial e painel
+administrativo com autenticação real.
 
-> ⚠️ Este projeto é um protótipo de front-end. Não há backend, banco de dados,
-> autenticação real, cálculos financeiros reais ou integração com gateways de
-> pagamento. Todos os dados exibidos são fictícios.
+## Tecnologias
 
-## Visão geral
-
-O projeto foi desenvolvido para validar a experiência de uso (UX), a
-organização de telas e a navegação de um e-commerce de relógios, com um visual
-minimalista, neutro e monocromático (preto, branco e cinza).
-
-### Ambientes do sistema
-
-1. **Área administrativa** — gestão de produtos, estoque, financeiro e clientes.
-2. **Loja virtual pública** — vitrine de produtos com carrinho e checkout simulado.
-
-## Tecnologias utilizadas
-
-- [React 19](https://react.dev/)
-- [Vite 7](https://vitejs.dev/)
-- [TypeScript](https://www.typescriptlang.org/)
+- [Next.js](https://nextjs.org/) (App Router) + TypeScript
 - [Tailwind CSS 4](https://tailwindcss.com/)
-- Fonte [Inter](https://fonts.google.com/specimen/Inter) (Google Fonts)
-- Ícones outline em SVG desenhados sob medida (sem bibliotecas externas)
+- [Supabase](https://supabase.com/): Postgres, Auth, Realtime e Storage
+- [InfinitePay Checkout](https://www.infinitepay.io/checkout-documentacao) para pagamento online
 
-## Como executar o projeto
+## Configuração inicial
 
-```bash
-# instalar dependências
-npm install
+1. **Instalar dependências**
 
-# ambiente de desenvolvimento
-npm run dev
+   ```bash
+   npm install
+   ```
 
-# build de produção
-npm run build
+2. **Criar o projeto Supabase** (se ainda não existir) e aplicar o schema em
+   `supabase/migrations/`, **na ordem numérica dos arquivos** (`0001` até o
+   mais recente) — copie o conteúdo de cada um no SQL Editor do Supabase
+   Studio, ou use `supabase db push` se estiver usando a CLI localmente. O
+   arquivo `0005_enable_realtime_orders.sql` é o que liga a atualização ao
+   vivo (Realtime) da cozinha e do acompanhamento do pedido — sem ele, essas
+   telas só mostram o status certo ao recarregar a página.
 
-# pré-visualizar o build
-npm run preview
-```
+3. **Variáveis de ambiente** — copie `.env.example` para `.env.local` e
+   preencha:
+   - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` /
+     `SUPABASE_SERVICE_ROLE_KEY` — em Configurações → API do projeto Supabase.
+   - `INFINITEPAY_HANDLE` — sua InfiniteTag (sem o `$`).
+   - `NEXT_PUBLIC_SITE_URL` — URL pública do site (usada para montar o
+     `redirect_url`/`webhook_url` da InfinitePay; em produção, aponte para o
+     domínio real).
+
+4. **Criar sua conta de admin**: em `/admin/login`, clique em "Não tem
+   conta? Cadastre-se" e preencha nome, e-mail, telefone e uma senha forte —
+   a conta já nasce com acesso de admin e fica ativa na hora (sem precisar
+   de confirmação por e-mail nem de acesso ao Supabase Studio).
+
+5. **Cadastrar itens do cardápio** em `/admin/itens` (após logar em
+   `/admin/login`).
+
+6. **Rodar em desenvolvimento**
+
+   ```bash
+   npm run dev
+   ```
+
+## Fluxo do cliente (celular)
+
+Cardápio (`/`) → item (`/item/[id]`) → carrinho (`/carrinho`) → checkout
+(`/checkout`, gera link InfinitePay) → pagamento na InfinitePay → retorno
+(`/pagamento/retorno`, confirma o pagamento e redireciona) → acompanhamento
+público do pedido (`/pedido/[codigo]`, atualizado em tempo real conforme a
+cozinha avança o pedido).
+
+## Fluxo da cozinha
+
+`/cozinha` é uma rota **pública** (tela fixa de balcão/cozinha, sem login),
+em formato pipeline: Recebido → Fazendo → Pronto. O card em "Pronto" tem um
+botão **Entregue** que remove o pedido da tela. Toda mudança de status
+propaga em tempo real (Supabase Realtime) para a própria cozinha e para a
+tela de acompanhamento do cliente daquele pedido.
+
+## Fluxo do PDV (venda presencial)
+
+PDV **não usa conta/login do Supabase Auth**. Em `/admin/pdv` (autenticado,
+admin), o organizador gera um link para cada caixa/pessoa informando um
+rótulo (ex: "Caixa 1") e uma senha de acesso; o sistema cria um link público
+(`/pdv/[token]`) e mostra um botão para enviar link + senha por WhatsApp.
+Quem abrir esse link precisa digitar a senha antes de ver a tela de venda —
+sem precisar de cadastro. Ali, monta-se o pedido, seleciona-se a forma de
+pagamento (dinheiro ou Pix, já recebido fisicamente) e registra-se a venda —
+o pedido entra direto na cozinha e no financeiro (identificado pelo rótulo
+do PDV), e a tela final mostra a senha do pedido com um botão para enviar o
+link de acompanhamento por WhatsApp ao cliente. O admin pode revogar um link
+a qualquer momento em `/admin/pdv` sem apagar o histórico de vendas já
+feitas por ele.
 
 ## Estrutura de pastas
 
 ```
-src/
-├── App.tsx                 # Roteador principal (baseado em estado, sem reload)
-├── store.tsx                # Contexto global: navegação (rotas) e carrinho de compras
-├── data.ts                   # Dados fictícios (produtos, clientes, estoque, financeiro)
-├── index.css                  # Estilos globais e importação da fonte Inter
-│
-├── components/
-│   ├── ui.tsx                 # Biblioteca de componentes reutilizáveis
-│   └── icons.tsx              # Ícones outline em SVG (preto/cinza)
-│
-├── admin/                     # Telas da área administrativa
-│   ├── AdminLayout.tsx         # Sidebar + cabeçalho administrativo
-│   ├── Login.tsx                # Acesso administrativo
-│   ├── Overview.tsx              # Dashboard / visão geral
-│   ├── Products.tsx               # Lista de produtos
-│   ├── ProductForm.tsx             # Cadastro e edição de produtos
-│   ├── Inventory.tsx                # Controle de estoque
-│   ├── Finance.tsx                   # Controle financeiro
-│   ├── Customers.tsx                  # Gestão de clientes
-│   ├── PDV.tsx                          # Ponto de venda (registro rápido de venda)
-│   └── Settings.tsx                      # Configurações da loja
-│
-└── public/                    # Telas da loja virtual (público)
-    ├── PublicHeader.tsx         # Cabeçalho da loja (busca, carrinho, menu)
-    ├── ProductCard.tsx           # Card de produto da vitrine
-    ├── Landing.tsx                 # Página inicial / vitrine de produtos
-    ├── ProductDetail.tsx            # Página de detalhes do produto
-    └── Checkout.tsx                   # Resumo de checkout
+app/
+├── page.tsx                     # Cardápio público
+├── item/[id]/page.tsx             # Detalhe do item
+├── carrinho/page.tsx               # Carrinho
+├── checkout/page.tsx                # Checkout + geração do link InfinitePay
+├── pagamento/retorno/page.tsx        # Retorno da InfinitePay
+├── pedido/page.tsx                    # Busca de pedido por senha
+├── pedido/[codigo]/page.tsx            # Acompanhamento público (Realtime)
+├── cozinha/page.tsx                     # KDS público (Realtime)
+├── pdv/[token]/page.tsx                   # Venda pública protegida por senha
+├── api/orders/route.ts                     # Criação de pedido (online e PDV)
+├── api/payments/infinitepay/webhook/         # Webhook de pagamento
+├── api/auth/signup/route.ts                    # Autocadastro do admin
+├── api/admin/pdv-links/route.ts                  # Geração de link de PDV (admin)
+├── api/pdv/[token]/auth/route.ts                   # Checagem de senha do PDV
+└── admin/                                            # Painel autenticado (login,
+                                                        # itens, pedidos, financeiro,
+                                                        # PDVs, configurações)
+
+components/
+├── ui.tsx, icons.tsx              # Biblioteca de componentes/ícones
+├── public/                         # Componentes da loja pública
+├── admin/                           # Componentes do painel admin
+└── pdv/PdvSaleForm.tsx               # Tela de venda usada em /pdv/[token]
+
+lib/
+├── supabase/                    # Clients (browser, server, admin/service-role)
+├── infinitepay.ts                 # Integração com a API de checkout
+├── whatsapp.ts                      # Link wa.me
+├── password.ts                        # Regra de senha forte (client + servidor)
+├── pdv-auth.ts                          # Hash/verificação de senha e token do PDV
+├── cart-context.tsx                       # Carrinho (client-side)
+├── queries.ts                               # Leituras server-side
+└── types.ts                                   # Tipos de domínio
+
+supabase/migrations/               # Schema SQL (tabelas, RLS, RPCs)
 ```
 
-## Telas do protótipo
+## Pontos de atenção
 
-### Área administrativa
-| Tela | Descrição |
-|---|---|
-| **Acesso administrativo** | Login com validação de campos obrigatórios, estado de carregamento e mensagem de credenciais inválidas. Login de demonstração: `admin@edsrelogios.com.br` / `123456`. |
-| **Visão geral (Dashboard)** | Cards de resumo (produtos, estoque baixo, entradas, saídas, saldo, clientes), atalhos rápidos e listas de atividades recentes. |
-| **Produtos** | Listagem com busca, filtros (categoria, estoque, status), badges de status e ações (visualizar, editar, duplicar, excluir) com confirmação. |
-| **Cadastro/edição de produto** | Formulário único dividido em seções: informações básicas, precificação, estoque, imagens e visibilidade. |
-| **Controle de estoque** | Tabela de níveis de estoque, alerta de estoque baixo, modal de movimentação (entrada/saída/ajuste) e histórico. |
-| **Financeiro** | Cards de totais (entradas, saídas, saldo, pendências), tabela de movimentações com filtros e modal de nova movimentação. |
-| **Clientes** | Listagem com busca, cadastro/edição em modal e exclusão com confirmação. |
-| **PDV** | Registro rápido de venda: localizar produto, selecionar cliente, definir quantidade e desconto, com resumo da venda e valor total calculado visualmente. |
-| **Configurações** | Preferências gerais da loja (dados, notificações, idioma). |
-
-### Loja virtual (pública)
-| Tela | Descrição |
-|---|---|
-| **Página inicial** | Cabeçalho público, seção principal (hero) e vitrine de produtos responsiva (grade de 1 a 4 colunas) com busca e filtro por categoria. |
-| **Detalhes do produto** | Galeria de imagens, seletor de quantidade, preço promocional e ficha técnica (caixa, pulseira, mecanismo, resistência à água, garantia). |
-| **Checkout (resumo)** | Dados do cliente, endereço de entrega e resumo do pedido (produtos, subtotal, frete, total), com botão para seguir ao pagamento simulado. |
-
-## Componentes reutilizáveis
-
-Localizados em `src/components/ui.tsx`:
-
-- `Button` (variantes primária, secundária, discreta e "destrutiva" textual)
-- `Card`
-- `SummaryCard` (cards de indicadores do dashboard)
-- `StatusBadge` (indicadores em tons de cinza: Ativo, Inativo, Pago, Pendente etc.)
-- `Field`, `Input`, `Select`, `Textarea`, `SearchField`
-- `Modal` e `ConfirmDialog`
-- `EmptyState`, `Loading`, `Toast`
-- `Toggle`
-
-## Direção visual
-
-- Paleta restrita a **branco, preto e tons de cinza** — sem cores vibrantes, gradientes ou sombras pesadas.
-- Tipografia **Inter** em toda a interface, com hierarquia consistente de tamanhos.
-- Bordas finas, divisores sutis e espaçamento generoso entre seções.
-- Cantos com raio mínimo, sem excesso de arredondamento.
-- Ícones outline simples em preto/cinza, sem preenchimento colorido.
-
-## Responsividade
-
-O layout foi construído com abordagem mobile-first e se adapta a três faixas principais:
-
-- **Desktop**: sidebar fixa, tabelas completas, grade de produtos em 4 colunas.
-- **Tablet**: sidebar colapsável, grade de produtos em 3 colunas, cards em 2 colunas.
-- **Mobile**: menu administrativo em drawer, formulários em coluna única, grade de produtos em 1–2 colunas, tabelas com rolagem horizontal.
-
-## Estados de interação cobertos
-
-- Carregamento (`Carregando...`)
-- Conteúdo vazio (`Nenhum produto encontrado.`, `Seu carrinho está vazio.`)
-- Sucesso ao salvar (`Produto salvo com sucesso.`, `Cliente cadastrado com sucesso.`)
-- Erro de validação (`Preencha os campos obrigatórios.`)
-- Confirmação de exclusão (`Tem certeza de que deseja excluir este produto?`)
-- Alerta de estoque baixo (`Este produto está com estoque baixo.`)
-- Credenciais inválidas no login
-
-## Limitações do protótipo
-
-Conforme escopo definido para esta fase inicial, o projeto **não** inclui:
-
-- Conexão com banco de dados real
-- Autenticação real
-- Infraestrutura de backend ou APIs externas
-- Regras reais de controle de estoque ou cálculos financeiros
-- Integração com gateway de pagamento
-- Relatórios avançados ou módulos fora do escopo definido
-
-O foco está exclusivamente em **design visual, navegação, estrutura de telas,
-responsividade e organização de componentes reutilizáveis**.
+- **`/admin/login` permite autocadastro de admin sem convite.** Qualquer
+  pessoa que encontrar essa URL pode criar uma conta com acesso total ao
+  painel (cardápio, pedidos, financeiro, geração de PDVs). Foi uma decisão
+  consciente para um sistema de curta duração (evento único) — se o painel
+  ficar no ar por mais tempo ou o link circular publicamente, vale revisar
+  esse endpoint (`app/api/auth/signup/route.ts`) antes.
+- A senha de um link de PDV fica só com quem o admin compartilhar (o
+  sistema nunca mostra a senha de novo depois de gerada — se perder, gere
+  um novo link e revogue o antigo em `/admin/pdv`).
+- O webhook da InfinitePay não é assinado (sem HMAC) — todo pagamento
+  recebido pelo webhook é revalidado via `payment_check` antes de ser
+  considerado confirmado (`lib/infinitepay.ts`).
+- Para testar o webhook localmente, exponha `npm run dev` publicamente (ex:
+  ngrok/Cloudflare Tunnel) e aponte `NEXT_PUBLIC_SITE_URL` para essa URL.
+- O formato de resposta do endpoint `/links` da InfinitePay não é 100%
+  documentado publicamente — valide com uma transação real de valor
+  simbólico antes de ir para produção.
