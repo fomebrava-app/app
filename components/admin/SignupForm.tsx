@@ -13,6 +13,7 @@ export function SignupForm() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,7 +23,7 @@ export function SignupForm() {
     e.preventDefault();
     setError("");
 
-    if (!fullName.trim() || !email.trim() || !telefone.trim()) {
+    if (!fullName.trim() || !email.trim() || !telefone.trim() || !inviteCode.trim()) {
       setError("Preencha todos os campos.");
       return;
     }
@@ -40,7 +41,13 @@ export function SignupForm() {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ full_name: fullName, email, telefone, password }),
+        body: JSON.stringify({
+          full_name: fullName,
+          email,
+          telefone,
+          password,
+          invite_code: inviteCode,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erro ao criar conta.");
@@ -70,6 +77,15 @@ export function SignupForm() {
       )}
 
       <form onSubmit={handleSubmit} className="mt-5 space-y-4" noValidate>
+        <Field label="Código de acesso" required>
+          <Input
+            type="password"
+            placeholder="Código fornecido pelo organizador"
+            value={inviteCode}
+            onChange={(e) => setInviteCode(e.target.value)}
+          />
+        </Field>
+
         <Field label="Nome completo" required>
           <Input
             placeholder="Seu nome completo"

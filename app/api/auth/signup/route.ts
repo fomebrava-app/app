@@ -1,31 +1,72 @@
+import { createHash, timingSafeEqual } from "crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isPasswordStrong } from "@/lib/password";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 interface SignupBody {
   full_name: string;
   email: string;
   telefone: string;
   password: string;
+  invite_code: string;
 }
 
-// Rota pública: qualquer pessoa que acessar /admin/login pode criar uma
-// conta de admin por aqui (risco aceito conscientemente pelo organizador
-// para um sistema de curta duração — ver plano). Sempre promove a
-// 'admin' explicitamente; nunca aceita um campo de role vindo do client.
-export async function POST(request: Request) {
-  const body = (await request.json()) as Partial<SignupBody>;
-  const fullName = body.full_name?.trim();
-  const email = body.email?.trim();
-  const telefone = body.telefone?.trim();
-  const password = body.password ?? "";
+function str(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
 
-  if (!fullName || !email || !telefone || !password) {
+// Compara em tempo constante hasheando os dois lados primeiro — evita a
+// exigência do timingSafeEqual de buffers do mesmo tamanho (mesma técnica
+// de crypto usada em lib/pdv-auth.ts, adaptada para um segredo único
+// guardado em variável de ambiente em vez de hash por registro).
+function safeEqual(a: string, b: string): boolean {
+  const hashA = createHash("sha256").update(a).digest();
+  const hashB = createHash("sha256").update(b).digest();
+  return timingSafeEqual(hashA, hashB);
+}
+
+// Rota antes pública sem nenhuma verificação — agora exige um código de
+// acesso conhecido só pelos organizadores (ADMIN_SIGNUP_CODE, nunca
+// exposto ao client) para reduzir o risco de qualquer pessoa que ache a
+// URL criar uma conta de admin. Sempre promove a 'admin' explicitamente;
+// nunca aceita um campo de role vindo do client.
+export async function POST(request: Request) {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (!checkRateLimit(`signup:${ip}`, 5, 15 * 60 * 1000)) {
+    return NextResponse.json(
+      { error: "Muitas tentativas. Aguarde alguns minutos e tente de novo." },
+      { status: 429 }
+    );
+  }
+
+  const body = (await request.json().catch(() => null)) as Partial<SignupBody> | null;
+  if (!body) {
+    return NextResponse.json({ error: "Corpo da requisição inválido." }, { status: 400 });
+  }
+
+  const fullName = str(body.full_name);
+  const email = str(body.email);
+  const telefone = str(body.telefone);
+  const inviteCode = str(body.invite_code);
+  const password = typeof body.password === "string" ? body.password : "";
+
+  if (!fullName || !email || !telefone || !password || !inviteCode) {
     return NextResponse.json({ error: "Preencha todos os campos." }, { status: 400 });
   }
 
   if (!isPasswordStrong(password)) {
     return NextResponse.json({ error: "A senha não atende aos requisitos de segurança." }, { status: 400 });
+  }
+
+  const expectedCode = process.env.ADMIN_SIGNUP_CODE;
+  if (!expectedCode) {
+    // Fail-closed: sem o código configurado no ambiente, não deixamos
+    // ninguém se cadastrar em vez de abrir a rota sem proteção por engano.
+    return NextResponse.json({ error: "Cadastro temporariamente indisponível." }, { status: 503 });
+  }
+  if (!safeEqual(inviteCode, expectedCode)) {
+    return NextResponse.json({ error: "Código de acesso inválido." }, { status: 401 });
   }
 
   const admin = createAdminClient();

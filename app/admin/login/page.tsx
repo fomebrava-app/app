@@ -92,7 +92,8 @@ export default function LoginPage() {
             <>
               <h1 className="text-xl font-semibold text-black">Criar conta</h1>
               <p className="mt-1 text-sm text-neutral-500">
-                Cadastre-se para administrar o cardápio deste evento.
+                Cadastre-se para administrar o cardápio deste evento. É
+                preciso o código de acesso fornecido pelo organizador.
               </p>
               <SignupForm />
             </>
