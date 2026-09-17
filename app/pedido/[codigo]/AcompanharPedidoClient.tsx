@@ -7,6 +7,7 @@ import { PublicHeader } from "@/components/public/PublicHeader";
 import { Card, EmptyState, Loading, StatusBadge } from "@/components/ui";
 import { IconCheck, IconChefHat } from "@/components/icons";
 import { useCart } from "@/lib/cart-context";
+import { cn } from "@/lib/cn";
 import { formatBRL } from "@/lib/format";
 import { ORDER_STATUS_ACCENT_CLASS, ORDER_STATUS_LABEL, type OrderStatus } from "@/lib/types";
 
@@ -83,6 +84,8 @@ export function AcompanharPedidoClient({ codigo }: { codigo: string }) {
     if (sessionStorage.getItem("pendingOrderId") === order.id) {
       clearCart();
       sessionStorage.removeItem("pendingOrderId");
+      sessionStorage.removeItem("pendingOrderPickupCode");
+      sessionStorage.removeItem("pendingPaymentUrl");
     }
   }, [order, clearCart]);
 
@@ -185,7 +188,11 @@ export function AcompanharPedidoClient({ codigo }: { codigo: string }) {
               <IconChefHat className="h-4 w-4 text-neutral-500" />
               <StatusBadge
                 tone={order.status === "pronto" ? "strong" : "medium"}
-                className={ORDER_STATUS_ACCENT_CLASS[order.status]}
+                className={
+                  order.status === "pronto"
+                    ? cn(ORDER_STATUS_ACCENT_CLASS.pronto, "text-black")
+                    : ORDER_STATUS_ACCENT_CLASS[order.status]
+                }
               >
                 {ORDER_STATUS_LABEL[order.status]}
               </StatusBadge>

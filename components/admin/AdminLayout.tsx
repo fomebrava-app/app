@@ -58,7 +58,7 @@ export function AdminLayout({
 
   const SidebarContent = (
     <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b-2 border-brand-orange/30 bg-brand-red/30 px-5 py-4">
+      <div className="flex items-center gap-2 border-b-2 border-brand-orange/30 bg-brand-yellow/10 px-5 py-4">
         <Image src="/logo.png" alt="Fomebrava" width={40} height={40} priority />
         <p className="text-[11px] uppercase tracking-widest text-black">
           Painel
@@ -137,12 +137,12 @@ export function AdminLayout({
       )}
 
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-20 border-b border-neutral-200 bg-brand-red/30 backdrop-blur lg:hidden">
+        <header className="sticky top-0 z-20 border-b border-neutral-200 bg-brand-yellow/10 backdrop-blur lg:hidden">
           <div className="flex items-center justify-between gap-4 px-4 py-3">
             <button
               onClick={() => setOpen(true)}
               aria-label="Abrir menu"
-              className="rounded p-2 text-neutral-600 hover:bg-neutral-100"
+              className="rounded p-2.5 text-neutral-600 hover:bg-neutral-100"
             >
               <IconMenu className="h-5 w-5" />
             </button>

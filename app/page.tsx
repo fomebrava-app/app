@@ -47,8 +47,8 @@ export default async function CardapioPage() {
 
       <MenuBrowser items={items} categories={categories} />
 
-      <footer className="border-t border-neutral-200 bg-brand-red/30">
-        <div className="mx-auto max-w-6xl px-4 py-10 text-center text-xs font-bold text-black sm:px-6">
+      <footer className="border-t border-neutral-200 bg-brand-yellow/10">
+        <div className="mx-auto max-w-6xl px-4 py-8 text-center text-xs font-bold text-black sm:px-6 sm:py-10">
           Cardápio virtual do evento.
         </div>
       </footer>

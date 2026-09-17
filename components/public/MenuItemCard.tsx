@@ -7,9 +7,10 @@ import { formatBRL } from "@/lib/format";
 import type { MenuItem } from "@/lib/types";
 
 export function MenuItemCard({ item }: { item: MenuItem }) {
-  const { addToCart } = useCart();
+  const { cart, addToCart, updateQuantity } = useCart();
   const hasPromo = !!item.preco_promocional;
   const esgotado = item.status === "esgotado";
+  const qtyInCart = cart.find((i) => i.menuItem.id === item.id)?.quantidade ?? 0;
 
   return (
     <Card className="flex flex-col overflow-hidden transition-colors hover:border-neutral-400">
@@ -49,11 +50,34 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
         <h3 className="text-[16px] font-semibold leading-snug text-black">
           {item.nome}
         </h3>
-        {item.descricao_curta && (
-          <p className="mt-1 line-clamp-2 text-[13px] text-neutral-500">
-            {item.descricao_curta}
-          </p>
-        )}
+        <div className="mt-1 flex items-start justify-between gap-2">
+          {item.descricao_curta && (
+            <p className="line-clamp-2 text-[13px] text-neutral-500">
+              {item.descricao_curta}
+            </p>
+          )}
+          {qtyInCart > 0 && (
+            <div className="flex flex-shrink-0 items-center rounded border border-neutral-300">
+              <button
+                onClick={() => updateQuantity(item.id, qtyInCart - 1)}
+                className="px-2.5 py-1 text-neutral-600 hover:text-black"
+                aria-label="Diminuir"
+              >
+                −
+              </button>
+              <span className="w-8 text-center text-sm font-medium">
+                {qtyInCart}
+              </span>
+              <button
+                onClick={() => updateQuantity(item.id, qtyInCart + 1)}
+                className="px-2.5 py-1 text-neutral-600 hover:text-black"
+                aria-label="Aumentar"
+              >
+                +
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="mt-3">
           {hasPromo ? (
@@ -80,9 +104,9 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
             variant="primary"
             className="flex-1"
             disabled={esgotado}
-            onClick={() => addToCart(item)}
+            onClick={() => addToCart(item, 1)}
           >
-            Adicionar
+            {qtyInCart > 0 ? `Adicionar (${qtyInCart})` : "Adicionar"}
           </Button>
         </div>
       </div>
