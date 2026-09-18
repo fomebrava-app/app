@@ -14,7 +14,7 @@ export function PublicHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b-2 border-brand-orange/30 bg-brand-yellow/100">
+      <header className="sticky top-0 z-30 border-t-2 border-x-2 border-brand-orange/30 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2">
             <Image src="/logo.png" alt="Fomebrava" width={48} height={48} priority />
@@ -47,12 +47,12 @@ export function PublicHeader() {
         </div>
 
         {open && (
-          <div className="border-t border-neutral-200 bg-brand-yellow/100 md:hidden">
+          <div className="border-t border-neutral-200 bg-white md:hidden">
             <nav className="flex flex-col px-4 py-2">
               <Link
                 href="/"
                 onClick={() => setOpen(false)}
-                className="border-b border-neutral-100 py-3 text-left text-sm font-bold text-black hover:text-neutral-700"
+                className="py-3 text-left text-sm font-bold text-black hover:text-neutral-700"
               >
                 Cardápio
               </Link>
@@ -66,6 +66,15 @@ export function PublicHeader() {
             </nav>
           </div>
         )}
+
+        {/* Funde a base do header com o degradê logo abaixo, eliminando a
+            emenda dura entre o branco sólido e o tom pastel do degradê
+            existente — mesma cor de chegada (#fffbe8) nos dois, criando
+            uma transição contínua em vez de dois degradês desencontrados. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-b from-transparent to-[#fffbe8]"
+        />
 
         {/* Some antes do conteúdo rolado "tocar" no header — sem isso, o
             fundo translúcido do header (bg-brand-yellow/10) deixa o
