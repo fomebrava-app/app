@@ -14,7 +14,7 @@ export function PublicHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b-2 border-brand-orange/30 bg-brand-yellow/10">
+      <header className="sticky top-0 z-30 border-b-2 border-brand-orange/30 bg-brand-yellow/100">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2">
             <Image src="/logo.png" alt="Fomebrava" width={48} height={48} priority />
@@ -47,7 +47,7 @@ export function PublicHeader() {
         </div>
 
         {open && (
-          <div className="border-t border-neutral-200 bg-brand-yellow/10 md:hidden">
+          <div className="border-t border-neutral-200 bg-brand-yellow/100 md:hidden">
             <nav className="flex flex-col px-4 py-2">
               <Link
                 href="/"
@@ -66,6 +66,17 @@ export function PublicHeader() {
             </nav>
           </div>
         )}
+
+        {/* Some antes do conteúdo rolado "tocar" no header — sem isso, o
+            fundo translúcido do header (bg-brand-yellow/10) deixa o
+            conteúdo por trás quase totalmente visível por baixo do logo/
+            nav enquanto rola. A cor sólida abaixo é o mesmo tom já
+            renderizado nas páginas (bg-brand-yellow/10 sobre fundo
+            branco), então o degradê se funde com o corpo da página. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-full h-10 bg-gradient-to-b from-[#fffbe8] to-transparent"
+        />
       </header>
 
       {cartCount > 0 && pathname !== "/carrinho" && (
