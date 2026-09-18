@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { PublicHeader } from "@/components/public/PublicHeader";
@@ -31,6 +31,13 @@ interface OrderDetail {
 }
 
 const STEPS: OrderStatus[] = ["recebido", "fazendo", "pronto", "entregue"];
+
+const STEP_COLOR: Record<string, { dot: string; text: string; line: string }> = {
+  recebido: { dot: "border-black bg-black", text: "text-white", line: "bg-black" },
+  fazendo: { dot: "border-brand-yellow bg-brand-yellow", text: "text-black", line: "bg-brand-yellow" },
+  pronto: { dot: "border-green-600 bg-green-600", text: "text-white", line: "bg-green-600" },
+  entregue: { dot: "border-blue-600 bg-blue-600", text: "text-white", line: "bg-blue-600" },
+};
 
 export function AcompanharPedidoClient({ codigo }: { codigo: string }) {
   const [order, setOrder] = useState<OrderDetail | null | undefined>(undefined);
@@ -89,6 +96,22 @@ export function AcompanharPedidoClient({ codigo }: { codigo: string }) {
     }
   }, [order, clearCart]);
 
+  const prevStatusRef = useRef<OrderStatus | null>(null);
+
+  useEffect(() => {
+    if (!order) return;
+    if (
+      order.status === "pronto" &&
+      prevStatusRef.current !== null &&
+      prevStatusRef.current !== "pronto"
+    ) {
+      new Audio("/sounds/efeito-sonoro-acompanhamento.mp3").play().catch(() => {
+        // autoplay pode ser bloqueado sem interação prévia do usuário na página
+      });
+    }
+    prevStatusRef.current = order.status;
+  }, [order]);
+
   if (order === undefined) {
     return (
       <div className="min-h-screen bg-brand-yellow/10">
@@ -145,20 +168,23 @@ export function AcompanharPedidoClient({ codigo }: { codigo: string }) {
             <div className="flex items-center justify-between">
               {STEPS.map((step, idx) => {
                 const reached = idx <= currentStepIdx;
+                const passed = idx < currentStepIdx;
+                const colors = STEP_COLOR[step];
+                const prevColors = idx > 0 ? STEP_COLOR[STEPS[idx - 1]] : null;
                 return (
                   <div key={step} className="flex flex-1 flex-col items-center">
                     <div className="flex w-full items-center">
                       {idx > 0 && (
                         <div
                           className={`h-0.5 flex-1 ${
-                            reached ? "bg-black" : "bg-neutral-200"
+                            reached ? prevColors!.line : "bg-neutral-200"
                           }`}
                         />
                       )}
                       <div
                         className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border-2 ${
                           reached
-                            ? "border-black bg-black text-white"
+                            ? `${colors.dot} ${colors.text}`
                             : "border-neutral-300 text-neutral-300"
                         }`}
                       >
@@ -171,7 +197,7 @@ export function AcompanharPedidoClient({ codigo }: { codigo: string }) {
                       {idx < STEPS.length - 1 && (
                         <div
                           className={`h-0.5 flex-1 ${
-                            idx < currentStepIdx ? "bg-black" : "bg-neutral-200"
+                            passed ? colors.line : "bg-neutral-200"
                           }`}
                         />
                       )}

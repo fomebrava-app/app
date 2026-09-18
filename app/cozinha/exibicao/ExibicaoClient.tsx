@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loading } from "@/components/ui";
 import { IconChefHat } from "@/components/icons";
 import { useKitchenOrders } from "@/lib/useKitchenOrders";
@@ -18,11 +18,46 @@ const COLUMNS: { status: OrderStatus; title: string }[] = [
 export function ExibicaoClient() {
   const { orders, loading } = useKitchenOrders();
   const [now, setNow] = useState(() => Date.now());
+  const [soundEnabled, setSoundEnabled] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- leitura síncrona do localStorage ao montar, não reage a mudança de estado
+    setSoundEnabled(localStorage.getItem("exibicaoSoundEnabled") === "1");
+  }, []);
+
+  function enableSound() {
+    // Precisa ser um play() síncrono dentro do clique — é esse gesto do
+    // usuário que destrava o autoplay de áudio no navegador para o resto
+    // da sessão dessa aba (sem isso, os play() automáticos do efeito
+    // abaixo são bloqueados silenciosamente quando a tela fica aberta
+    // sozinha num monitor, sem ninguém clicando nela).
+    const audio = new Audio("/sounds/efeito-sonoro-tela-cliente.mp3");
+    audio.volume = 0;
+    audio.play().catch(() => {});
+    localStorage.setItem("exibicaoSoundEnabled", "1");
+    setSoundEnabled(true);
+  }
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(interval);
   }, []);
+
+  const prevReadyIdsRef = useRef<Set<string> | null>(null);
+
+  useEffect(() => {
+    if (loading) return;
+    const readyIds = new Set(orders.filter((o) => o.status === "pronto").map((o) => o.id));
+    if (prevReadyIdsRef.current) {
+      const hasNewReady = [...readyIds].some((id) => !prevReadyIdsRef.current!.has(id));
+      if (hasNewReady) {
+        new Audio("/sounds/efeito-sonoro-tela-cliente.mp3").play().catch(() => {
+          // autoplay pode ser bloqueado sem interação prévia do usuário na página
+        });
+      }
+    }
+    prevReadyIdsRef.current = readyIds;
+  }, [orders, loading]);
 
   if (loading) {
     return (
@@ -41,6 +76,15 @@ export function ExibicaoClient() {
           {new Date(now).toLocaleTimeString("pt-BR")}
         </span>
       </header>
+
+      {!soundEnabled && (
+        <button
+          onClick={enableSound}
+          className="fixed bottom-4 right-4 z-10 rounded border border-neutral-700 bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg hover:bg-neutral-800"
+        >
+          🔊 Ativar som
+        </button>
+      )}
 
       <div className="grid grid-cols-1 gap-6 p-6 md:grid-cols-3 md:p-10">
         {COLUMNS.map((col) => {
