@@ -31,8 +31,14 @@ export async function createInfinitePayCheckoutLink(params: {
   if (!handle) throw new Error("INFINITEPAY_HANDLE não configurado.");
   if (!siteUrl) throw new Error("NEXT_PUBLIC_SITE_URL não configurado.");
 
+  // A InfinitePay exige customer.name com pelo menos 3 caracteres quando
+  // enviado (HTTP 422 "size cannot be less than 3" caso contrário) — como
+  // esse campo é opcional no nosso checkout, um nome curto não deve
+  // quebrar o pagamento: só mandamos o nome se ele realmente atender o
+  // mínimo, senão omitimos (a InfinitePay aceita customer sem name).
+  const trimmedName = params.customerName?.trim();
   const customer = {
-    ...(params.customerName ? { name: params.customerName } : {}),
+    ...(trimmedName && trimmedName.length >= 3 ? { name: trimmedName } : {}),
     ...(defaultEmail ? { email: defaultEmail } : {}),
   };
 

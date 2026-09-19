@@ -2,8 +2,8 @@
 
 import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, EmptyState, Select, StatusBadge } from "@/components/ui";
-import { IconLayers } from "@/components/icons";
+import { Button, Card, EmptyState, Field, Modal, Select, StatusBadge, Textarea } from "@/components/ui";
+import { IconAlert, IconLayers } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/cn";
 import { formatBRL } from "@/lib/format";
@@ -35,6 +35,28 @@ export function PedidosTable({
   const supabase = createClient();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
+  const [confirmingPayment, setConfirmingPayment] = useState<Order | null>(null);
+  const [nota, setNota] = useState("");
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [erroPayment, setErroPayment] = useState("");
+
+  async function handleConfirmPayment() {
+    if (!confirmingPayment || !nota.trim()) return;
+    setSavingPayment(true);
+    setErroPayment("");
+    const { error } = await supabase.rpc("confirm_manual_payment", {
+      p_order_id: confirmingPayment.id,
+      p_nota: nota.trim(),
+    });
+    setSavingPayment(false);
+    if (error) {
+      setErroPayment(error.message);
+      return;
+    }
+    setConfirmingPayment(null);
+    setNota("");
+    router.refresh();
+  }
 
   async function handleStatusChange(order: Order, novoStatus: OrderStatus) {
     if (novoStatus === order.status) return;
@@ -92,6 +114,19 @@ export function PedidosTable({
                     <StatusBadge tone={order.payment_status === "pago" ? "medium" : "soft"}>
                       {order.payment_status}
                     </StatusBadge>
+                    {order.payment_status !== "pago" && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setErroPayment("");
+                          setNota("");
+                          setConfirmingPayment(order);
+                        }}
+                        className="mt-1 block text-xs text-neutral-500 underline hover:text-black"
+                      >
+                        Confirmar pagamento
+                      </button>
+                    )}
                   </td>
                   <td className="px-4 py-3 font-medium text-black">
                     {formatBRL(order.total)}
@@ -149,6 +184,46 @@ export function PedidosTable({
           </tbody>
         </table>
       </div>
+
+      <Modal
+        open={!!confirmingPayment}
+        onClose={() => setConfirmingPayment(null)}
+        title="Confirmar pagamento manualmente"
+        size="sm"
+        footer={
+          <>
+            <Button onClick={() => setConfirmingPayment(null)}>Cancelar</Button>
+            <Button
+              variant="primary"
+              disabled={!nota.trim() || savingPayment}
+              onClick={handleConfirmPayment}
+            >
+              {savingPayment ? "Confirmando..." : "Confirmar pagamento"}
+            </Button>
+          </>
+        }
+      >
+        {confirmingPayment && (
+          <div className="space-y-4">
+            <div className="flex gap-3 rounded border border-neutral-200 bg-neutral-50 p-3">
+              <IconAlert className="h-5 w-5 flex-shrink-0 text-neutral-500" />
+              <p className="text-sm text-neutral-700">
+                Isso marca o pedido #{confirmingPayment.pickup_code} como pago sem
+                confirmação da InfinitePay. Use só se o cliente mostrou comprovante de
+                cobrança (extrato, fatura, print do banco).
+              </p>
+            </div>
+            <Field label="Como foi confirmado o pagamento?" required>
+              <Textarea
+                placeholder="Ex.: cliente mostrou comprovante Nubank de R$ 45,90 na tela do celular"
+                value={nota}
+                onChange={(e) => setNota(e.target.value)}
+              />
+            </Field>
+            {erroPayment && <p className="text-sm text-red-600">{erroPayment}</p>}
+          </div>
+        )}
+      </Modal>
     </Card>
   );
 }
