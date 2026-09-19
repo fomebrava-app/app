@@ -287,7 +287,7 @@ export default function CheckoutPage() {
               <span className="text-lg font-bold text-black">
                 {paymentModal.pickupCode}
               </span>
-              . Anote acompanhar o pedido no botão "Acompanhar pedido" após o pagamento.
+              . Anote para acompanhar o pedido no botão "Acompanhar pedido" após o pagamento.
             </p>
             <p className="rounded border border-brand-orange/40 bg-brand-orange/10 p-3 text-black">
               Depois de concluir o pagamento na InfinitePay, clique no botão para voltar
