@@ -16,7 +16,7 @@ export default function BuscarPedidoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-brand-yellow/10 text-black">
+    <div className="min-h-screen bg-brand-paper text-black">
       <PublicHeader />
       <div className="mx-auto max-w-md px-4 py-16 sm:px-6">
         <h1 className="text-[24px] font-bold tracking-tight text-black">

@@ -114,7 +114,7 @@ export function AcompanharPedidoClient({ codigo }: { codigo: string }) {
 
   if (order === undefined) {
     return (
-      <div className="min-h-screen bg-brand-yellow/10">
+      <div className="min-h-screen bg-brand-paper">
         <PublicHeader />
         <Loading label="Carregando pedido..." />
       </div>
@@ -123,7 +123,7 @@ export function AcompanharPedidoClient({ codigo }: { codigo: string }) {
 
   if (order === null) {
     return (
-      <div className="min-h-screen bg-brand-yellow/10 text-black">
+      <div className="min-h-screen bg-brand-paper text-black">
         <PublicHeader />
         <div className="mx-auto max-w-md px-4 py-16 sm:px-6">
           <EmptyState
@@ -144,7 +144,7 @@ export function AcompanharPedidoClient({ codigo }: { codigo: string }) {
   const currentStepIdx = STEPS.indexOf(order.status);
 
   return (
-    <div className="min-h-screen bg-brand-yellow/10 text-black">
+    <div className="min-h-screen bg-brand-paper text-black">
       <PublicHeader />
 
       <div className="mx-auto max-w-md px-4 py-10 sm:px-6">
@@ -202,7 +202,7 @@ export function AcompanharPedidoClient({ codigo }: { codigo: string }) {
                         />
                       )}
                     </div>
-                    <span className="mt-2 text-center text-[11px] font-medium text-neutral-600">
+                    <span className="mt-2 text-center text-[11px] font-bold text-neutral-600">
                       {ORDER_STATUS_LABEL[step]}
                     </span>
                   </div>

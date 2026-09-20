@@ -43,10 +43,17 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-brand-yellow/10 px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-brand-paper px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <Image src="/logo.png" alt="Fomebrava" width={64} height={64} priority />
+          <Image
+            src="/logo.png"
+            alt="Fomebrava"
+            width={64}
+            height={64}
+            priority
+            className="rounded-md"
+          />
         </div>
 
         <Card className="p-6">

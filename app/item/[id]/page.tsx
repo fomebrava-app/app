@@ -23,7 +23,7 @@ export default async function ItemPage({
   const esgotado = item.status === "esgotado";
 
   return (
-    <div className="min-h-screen bg-brand-yellow/10 text-black">
+    <div className="min-h-screen bg-brand-paper text-black">
       <PublicHeader />
 
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">

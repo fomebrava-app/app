@@ -114,7 +114,7 @@ export default function CheckoutPage() {
 
   if (checkingPending) {
     return (
-      <div className="min-h-screen bg-brand-yellow/10 text-black">
+      <div className="min-h-screen bg-brand-paper text-black">
         <PublicHeader />
         <div className="flex justify-center px-4 py-16">
           <Loading label="Verificando seu pedido..." />
@@ -124,7 +124,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-brand-yellow/10 text-black">
+    <div className="min-h-screen bg-brand-paper text-black">
       <PublicHeader />
 
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
@@ -287,7 +287,7 @@ export default function CheckoutPage() {
               <span className="text-lg font-bold text-black">
                 {paymentModal.pickupCode}
               </span>
-              . Anote para acompanhar o pedido no botão "Acompanhar pedido" após o pagamento.
+              . Anote para acompanhar o pedido no botão &quot;Acompanhar pedido&quot; após o pagamento.
             </p>
             <p className="rounded border border-brand-orange/40 bg-brand-orange/10 p-3 text-black">
               Depois de concluir o pagamento na InfinitePay, clique no botão para voltar

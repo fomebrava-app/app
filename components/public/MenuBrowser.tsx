@@ -36,7 +36,7 @@ export function MenuBrowser({
             Cardápio
           </h2>
           <p className="mt-1 text-sm text-neutral-500">
-            {filtered.length} item(ns) disponível(is)
+            {filtered.length} itens disponíveis
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">

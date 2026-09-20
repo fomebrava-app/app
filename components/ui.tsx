@@ -26,7 +26,7 @@ export function Button({
 }: ButtonProps) {
   const variants = {
     primary:
-      "bg-brand-red/10 text-black border-2 border-brand-red hover:bg-brand-red/20",
+      "bg-brand-orange text-white border-2 border-brand-orange hover:bg-brand-orange-dark hover:border-brand-orange-dark",
     secondary:
       "bg-white text-black border border-neutral-300 hover:bg-neutral-50",
     ghost: "bg-transparent text-neutral-700 border border-transparent hover:bg-neutral-100",
@@ -157,7 +157,7 @@ export function Field({
 }
 
 const fieldBase =
-  "w-full rounded border bg-white px-3 py-2 text-sm text-black placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300 focus:border-neutral-400 transition-colors";
+  "w-full rounded border bg-white px-3 py-2 text-base sm:text-sm text-black placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-neutral-300 focus:border-neutral-400 transition-colors";
 
 export function Input({
   className,

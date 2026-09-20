@@ -17,7 +17,14 @@ export function PublicHeader() {
       <header className="sticky top-0 z-30 border-t-2 border-x-2 border-brand-orange/30 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Fomebrava" width={48} height={48} priority />
+            <Image
+              src="/logo.png"
+              alt="Fomebrava"
+              width={48}
+              height={48}
+              priority
+              className="rounded-md"
+            />
           </Link>
 
           <nav className="hidden items-center gap-8 md:flex">
@@ -68,23 +75,20 @@ export function PublicHeader() {
         )}
 
         {/* Funde a base do header com o degradê logo abaixo, eliminando a
-            emenda dura entre o branco sólido e o tom pastel do degradê
-            existente — mesma cor de chegada (#fffbe8) nos dois, criando
+            emenda dura entre o branco sólido do header e o degradê
+            seguinte — mesma cor de chegada (branco) nos dois, criando
             uma transição contínua em vez de dois degradês desencontrados. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-b from-transparent to-[#fffbe8]"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-b from-transparent to-brand-paper"
         />
 
         {/* Some antes do conteúdo rolado "tocar" no header — sem isso, o
-            fundo translúcido do header (bg-brand-yellow/10) deixa o
-            conteúdo por trás quase totalmente visível por baixo do logo/
-            nav enquanto rola. A cor sólida abaixo é o mesmo tom já
-            renderizado nas páginas (bg-brand-yellow/10 sobre fundo
-            branco), então o degradê se funde com o corpo da página. */}
+            header (bg-white) cobriria abruptamente o conteúdo por trás
+            enquanto rola, sem transição. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-full h-10 bg-gradient-to-b from-[#fffbe8] to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-full h-10 bg-gradient-to-b from-brand-paper to-transparent"
         />
       </header>
 

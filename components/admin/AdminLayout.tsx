@@ -59,7 +59,14 @@ export function AdminLayout({
   const SidebarContent = (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b-2 border-brand-orange/30 bg-brand-yellow/10 px-5 py-4">
-        <Image src="/logo.png" alt="Fomebrava" width={40} height={40} priority />
+        <Image
+          src="/logo.png"
+          alt="Fomebrava"
+          width={40}
+          height={40}
+          priority
+          className="rounded-md"
+        />
         <p className="text-[11px] uppercase tracking-widest text-black">
           Painel
         </p>
@@ -78,7 +85,7 @@ export function AdminLayout({
                 "flex w-full items-center gap-3 rounded border-l-2 px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
                   ? "border-brand-navy bg-brand-navy/10 text-black"
-                  : "border-transparent text-neutral-600 hover:bg-neutral-50 hover:text-black"
+                  : "border-transparent text-black hover:bg-neutral-50"
               )}
             >
               <span className="text-black">
@@ -94,7 +101,7 @@ export function AdminLayout({
         <Link
           href="/"
           onClick={() => setOpen(false)}
-          className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-black"
+          className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-black transition-colors hover:bg-neutral-50"
         >
           <span className="text-black">
             <IconStore className="h-5 w-5" />
@@ -103,7 +110,7 @@ export function AdminLayout({
         </Link>
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-neutral-600 transition-colors hover:bg-neutral-50 hover:text-black"
+          className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-black transition-colors hover:bg-neutral-50"
         >
           <span className="text-black">
             <IconLogout className="h-5 w-5" />
@@ -115,15 +122,15 @@ export function AdminLayout({
   );
 
   return (
-    <div className="min-h-screen bg-brand-yellow/10 text-black">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-neutral-200 bg-brand-yellow/10 lg:block">
+    <div className="min-h-screen bg-brand-paper text-black" data-admin="true">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-neutral-200 bg-brand-paper lg:block">
         {SidebarContent}
       </aside>
 
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-64 border-r border-neutral-200 bg-brand-yellow/10">
+          <aside className="absolute inset-y-0 left-0 w-64 border-r border-neutral-200 bg-brand-paper">
             <button
               onClick={() => setOpen(false)}
               aria-label="Fechar menu"
@@ -137,7 +144,7 @@ export function AdminLayout({
       )}
 
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-20 border-b border-neutral-200 bg-brand-yellow/10 backdrop-blur lg:hidden">
+        <header className="sticky top-0 z-20 border-b border-neutral-200 bg-brand-paper backdrop-blur lg:hidden">
           <div className="flex items-center justify-between gap-4 px-4 py-3">
             <button
               onClick={() => setOpen(true)}

@@ -11,7 +11,7 @@ export default async function CardapioPage() {
   const destaque = items.find((i) => i.destaque) ?? items[0];
 
   return (
-    <div className="min-h-screen bg-brand-yellow/10 text-black">
+    <div className="min-h-screen bg-brand-paper text-black">
       <PublicHeader />
 
       <section className="border-b border-neutral-200">
@@ -24,8 +24,8 @@ export default async function CardapioPage() {
               Peça direto do seu celular
             </h1>
             <p className="mt-4 max-w-md text-[15px] text-neutral-600">
-              Escolha os itens, adicione ao carrinho e finalize o pagamento —
-              acompanhe o preparo em tempo real com a senha do seu pedido.
+              Escolha os itens, adicione ao carrinho e finalize o pagamento.
+              Acompanhe o status do seu pedido em tempo real com a senha recebida no pagamento.
             </p>
           </div>
           <div className="order-1 lg:order-2">
@@ -47,7 +47,7 @@ export default async function CardapioPage() {
 
       <MenuBrowser items={items} categories={categories} />
 
-      <footer className="border-t border-neutral-200 bg-brand-yellow/10">
+      <footer className="border-t border-neutral-200 bg-brand-paper">
         <div className="mx-auto max-w-6xl px-4 py-8 text-center text-xs font-bold text-black sm:px-6 sm:py-10">
           Cardápio virtual do evento.
         </div>
