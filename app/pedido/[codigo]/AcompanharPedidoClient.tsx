@@ -108,6 +108,12 @@ export function AcompanharPedidoClient({ codigo }: { codigo: string }) {
       new Audio("/sounds/efeito-sonoro-acompanhamento.mp3").play().catch(() => {
         // autoplay pode ser bloqueado sem interação prévia do usuário na página
       });
+      // Vibration API não existe no iOS (nenhum navegador ali, é limitação
+      // do WebKit da Apple) — a checagem evita erro nesses aparelhos, o som
+      // acima continua funcionando normalmente de qualquer forma.
+      if ("vibrate" in navigator) {
+        navigator.vibrate([200, 100, 200]);
+      }
     }
     prevStatusRef.current = order.status;
   }, [order]);
