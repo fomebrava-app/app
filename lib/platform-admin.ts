@@ -76,7 +76,7 @@ export async function listPlatformUsers(): Promise<PlatformUser[]> {
 
 function missingSignupTable(error: { code?: string; message?: string } | null): boolean {
   if (!error) return false;
-  return error.code === "PGRST205" || error.message.includes("signup_codes");
+  return error.code === "PGRST205" || (error.message ?? "").includes("signup_codes");
 }
 
 export async function signupCodeInventory(): Promise<SignupCodeInventory> {
