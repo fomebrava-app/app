@@ -7,6 +7,12 @@ Fazendo → Pronto → Entregue) atualizado em tempo real, tela pública de
 acompanhamento do pedido com senha, PDV para venda presencial e painel
 administrativo com autenticação real.
 
+O painel também inclui um assistente de **precificação solidária** para
+organizações sem fins lucrativos. Ele combina custo dos produtos comprados
+prontos ou produzidos, gastos compartilhados do evento, referência de preço
+regional, reserva contra perdas e uma meta opcional de arrecadação. O objetivo
+é sugerir um preço sustentável e acessível, em vez de maximizar margem.
+
 ## Tecnologias
 
 - [Next.js](https://nextjs.org/) (App Router) + TypeScript
@@ -124,6 +130,21 @@ lib/
 
 supabase/migrations/               # Schema SQL (tabelas, RLS, RPCs)
 ```
+
+## Precificação solidária
+
+Depois de aplicar a migração `0008_solidarity_pricing.sql`, abra
+`/admin/precificacao`. O fluxo permite:
+
+- escolher uma referência regional parametrizada;
+- separar produtos comprados prontos daqueles que serão produzidos;
+- distribuir orçamento entre ingredientes, embalagens e operação;
+- considerar reserva de segurança e meta de arrecadação para a causa;
+- comparar custo completo, média regional e preço sugerido;
+- salvar o planejamento para consulta posterior.
+
+Os valores regionais iniciais são referências internas e devem ser revisados
+antes de cada evento. Eles não representam pesquisa oficial de mercado.
 
 ## Pontos de atenção
 

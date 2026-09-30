@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import { useState } from "react";
 import { useCart } from "@/lib/cart-context";
 import { IconCart, IconMenu, IconClose } from "@/components/icons";
@@ -11,12 +11,13 @@ export function PublicHeader() {
   const { cartCount } = useCart();
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const { tenant } = useParams<{ tenant: string }>();
 
   return (
     <>
       <header className="sticky top-0 z-30 border-t-2 border-x-2 border-brand-orange/30 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href={`/${tenant}`} className="flex items-center gap-2">
             <Image
               src="/logo.png"
               alt="Fomebrava"
@@ -29,13 +30,13 @@ export function PublicHeader() {
 
           <nav className="hidden items-center gap-8 md:flex">
             <Link
-              href="/"
+              href={`/${tenant}`}
               className="text-sm font-bold text-black transition-colors hover:text-neutral-700"
             >
               Cardápio
             </Link>
             <Link
-              href="/pedido"
+              href={`/${tenant}/pedido`}
               className="text-sm font-bold text-black transition-colors hover:text-neutral-700"
             >
               Acompanhar pedido
@@ -57,14 +58,14 @@ export function PublicHeader() {
           <div className="border-t border-neutral-200 bg-white md:hidden">
             <nav className="flex flex-col px-4 py-2">
               <Link
-                href="/"
+                href={`/${tenant}`}
                 onClick={() => setOpen(false)}
                 className="py-3 text-left text-sm font-bold text-black hover:text-neutral-700"
               >
                 Cardápio
               </Link>
               <Link
-                href="/pedido"
+                href={`/${tenant}/pedido`}
                 onClick={() => setOpen(false)}
                 className="py-3 text-left text-sm font-bold text-black hover:text-neutral-700"
               >
@@ -92,9 +93,9 @@ export function PublicHeader() {
         />
       </header>
 
-      {cartCount > 0 && pathname !== "/carrinho" && (
+      {cartCount > 0 && pathname !== `/${tenant}/carrinho` && (
         <Link
-          href="/carrinho"
+          href={`/${tenant}/carrinho`}
           aria-label="Ver carrinho"
           className="fixed bottom-5 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-black text-white shadow-lg transition-transform hover:scale-105 sm:right-6"
         >

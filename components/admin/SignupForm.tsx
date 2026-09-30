@@ -6,6 +6,7 @@ import { Button, Field, Input } from "@/components/ui";
 import { IconAlert, IconCheck } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { PASSWORD_RULES, isPasswordStrong } from "@/lib/password";
+import { normalizeTenantSlug, normalizeTenantSlugInput } from "@/lib/tenant-slug";
 import { cn } from "@/lib/cn";
 
 export function SignupForm() {
@@ -13,6 +14,7 @@ export function SignupForm() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [tenantSlug, setTenantSlug] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -23,7 +25,13 @@ export function SignupForm() {
     e.preventDefault();
     setError("");
 
-    if (!fullName.trim() || !email.trim() || !telefone.trim() || !inviteCode.trim()) {
+    if (
+      !fullName.trim() ||
+      !email.trim() ||
+      !telefone.trim() ||
+      !inviteCode.trim() ||
+      !tenantSlug.trim()
+    ) {
       setError("Preencha todos os campos.");
       return;
     }
@@ -47,6 +55,7 @@ export function SignupForm() {
           telefone,
           password,
           invite_code: inviteCode,
+          tenant_slug: normalizeTenantSlug(tenantSlug),
         }),
       });
       const data = await res.json();
@@ -59,7 +68,7 @@ export function SignupForm() {
       });
       if (authError) throw new Error("Conta criada, mas não foi possível entrar automaticamente. Faça login.");
 
-      router.push("/admin");
+      router.push(`/${data.tenantSlug}/admin`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro inesperado.");
@@ -80,10 +89,22 @@ export function SignupForm() {
         <Field label="Código de acesso" required>
           <Input
             type="password"
-            placeholder="Código fornecido pelo organizador"
+            placeholder="XXXX-XXXX-XXXX"
             value={inviteCode}
             onChange={(e) => setInviteCode(e.target.value)}
           />
+        </Field>
+
+        <Field label="Usuário (identificador da sua loja)" required>
+          <Input
+            placeholder="ex: clubebeta"
+            value={tenantSlug}
+            onChange={(e) => setTenantSlug(normalizeTenantSlugInput(e.target.value))}
+          />
+          <p className="mt-1 text-xs text-neutral-500">
+            Vira o endereço da sua loja: fomebrava.com.br/
+            {normalizeTenantSlug(tenantSlug) || "seuusuario"}
+          </p>
         </Field>
 
         <Field label="Nome completo" required>

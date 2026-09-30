@@ -14,7 +14,13 @@ interface LastCreated {
   password: string;
 }
 
-export function PdvLinksManager({ pdvLinks }: { pdvLinks: PdvLink[] }) {
+export function PdvLinksManager({
+  tenant,
+  pdvLinks,
+}: {
+  tenant: string;
+  pdvLinks: PdvLink[];
+}) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -27,7 +33,7 @@ export function PdvLinksManager({ pdvLinks }: { pdvLinks: PdvLink[] }) {
   const [pendingId, setPendingId] = useState<string | null>(null);
 
   function linkUrl(token: string) {
-    return `${window.location.origin}/pdv/${token}`;
+    return `${window.location.origin}/${tenant}/pdv/${token}`;
   }
 
   async function handleGerar() {
@@ -157,7 +163,7 @@ export function PdvLinksManager({ pdvLinks }: { pdvLinks: PdvLink[] }) {
                   <tr key={link.id}>
                     <td className="px-5 py-3 font-medium text-black">{link.label}</td>
                     <td className="max-w-[240px] truncate px-5 py-3 text-neutral-500">
-                      /pdv/{link.token}
+                      /{tenant}/pdv/{link.token}
                     </td>
                     <td className="px-5 py-3">
                       <StatusBadge tone={link.ativo ? "medium" : "soft"}>

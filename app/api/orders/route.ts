@@ -11,6 +11,7 @@ interface OrderItemInput {
 
 interface CreateOrderBody {
   channel: "online" | "pdv";
+  tenant?: string;
   items: OrderItemInput[];
   payment_method?: "dinheiro" | "pix_presencial";
   customer_name?: string;
@@ -23,6 +24,10 @@ export async function POST(request: Request) {
 
   if (!body.items?.length) {
     return NextResponse.json({ error: "Carrinho vazio." }, { status: 400 });
+  }
+
+  if (!body.tenant) {
+    return NextResponse.json({ error: "Tenant ausente." }, { status: 400 });
   }
 
   if (body.channel === "pdv") {
@@ -47,6 +52,7 @@ export async function POST(request: Request) {
     const { data, error } = await admin.rpc("create_order", {
       p_channel: "pdv",
       p_items: body.items,
+      p_tenant_slug: body.tenant,
       p_payment_method: body.payment_method,
       p_customer_name: body.customer_name ?? null,
       p_pdv_link_id: link.id,
@@ -70,6 +76,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabase.rpc("create_order", {
     p_channel: "online",
     p_items: body.items,
+    p_tenant_slug: body.tenant,
     p_customer_name: body.customer_name ?? null,
   });
 
@@ -110,6 +117,7 @@ export async function POST(request: Request) {
   try {
     const paymentUrl = await createInfinitePayCheckoutLink({
       orderId: order.id,
+      tenantSlug: body.tenant,
       items: linkItems,
       customerName: body.customer_name,
     });

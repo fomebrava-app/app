@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 import { IconCart } from "@/components/icons";
 import { useCart } from "@/lib/cart-context";
@@ -10,6 +10,7 @@ import type { MenuItem } from "@/lib/types";
 export function AddToCartControl({ item }: { item: MenuItem }) {
   const { addToCart } = useCart();
   const router = useRouter();
+  const { tenant } = useParams<{ tenant: string }>();
   const [qty, setQty] = useState(1);
   const esgotado = item.status === "esgotado";
 
@@ -38,7 +39,7 @@ export function AddToCartControl({ item }: { item: MenuItem }) {
         className="flex-1 sm:flex-none"
         onClick={() => {
           addToCart(item, qty);
-          router.push("/carrinho");
+          router.push(`/${tenant}/carrinho`);
         }}
       >
         <IconCart className="h-4 w-4" /> Adicionar ao carrinho

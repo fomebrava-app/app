@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { Button, Card, StatusBadge } from "@/components/ui";
 import { useCart } from "@/lib/cart-context";
 import { formatBRL } from "@/lib/format";
@@ -8,6 +9,7 @@ import type { MenuItem } from "@/lib/types";
 
 export function MenuItemCard({ item }: { item: MenuItem }) {
   const { cart, addToCart, updateQuantity } = useCart();
+  const { tenant } = useParams<{ tenant: string }>();
   const hasPromo = !!item.preco_promocional;
   const esgotado = item.status === "esgotado";
   const qtyInCart = cart.find((i) => i.menuItem.id === item.id)?.quantidade ?? 0;
@@ -15,7 +17,7 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
   return (
     <Card className="flex flex-col overflow-hidden transition-colors hover:border-neutral-400">
       <Link
-        href={`/item/${item.id}`}
+        href={`/${tenant}/item/${item.id}`}
         className="relative block aspect-square overflow-hidden bg-neutral-50"
       >
         {item.imagem_url ? (
@@ -97,7 +99,7 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
         </div>
 
         <div className="mt-4 flex gap-2">
-          <Link href={`/item/${item.id}`} className="flex-1">
+          <Link href={`/${tenant}/item/${item.id}`} className="flex-1">
             <Button className="w-full">Ver detalhes</Button>
           </Link>
           <Button

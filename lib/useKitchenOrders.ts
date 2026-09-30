@@ -20,30 +20,32 @@ export interface KitchenOrder {
 }
 
 // Busca os pedidos ativos da cozinha e mantém em sincronia via Realtime.
-// Compartilhado entre a tela operacional (/cozinha) e a tela de exibição
-// para o cliente (/cozinha/exibicao) — as duas só leem o mesmo estado,
-// a mutação de status acontece só na tela operacional.
-export function useKitchenOrders() {
+// Compartilhado entre a tela operacional (/[tenant]/cozinha) e a tela de
+// exibição para o cliente (/[tenant]/cozinha/exibicao) — as duas só leem
+// o mesmo estado, a mutação de status acontece só na tela operacional.
+export function useKitchenOrders(tenantSlug: string) {
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
   const supabase = createClient();
 
   const fetchOrders = useCallback(async () => {
-    const { data, error } = await supabase.rpc("list_kitchen_orders");
+    const { data, error } = await supabase.rpc("list_kitchen_orders", {
+      p_tenant_slug: tenantSlug,
+    });
     if (!error && data) {
       setOrders(data as unknown as KitchenOrder[]);
     }
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [tenantSlug]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- busca inicial ao montar, não um setState síncrono
     fetchOrders();
 
     const channel = supabase
-      .channel("kitchen-orders")
+      .channel(`kitchen-orders-${tenantSlug}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "orders" },
@@ -55,7 +57,7 @@ export function useKitchenOrders() {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [tenantSlug]);
 
   return { orders, setOrders, loading };
 }

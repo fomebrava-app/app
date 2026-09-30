@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Button, Card, EmptyState, Field, Modal, Select, StatusBadge, Textarea } from "@/components/ui";
 import { IconAlert, IconLayers } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
@@ -33,6 +33,7 @@ export function PedidosTable({
 }) {
   const router = useRouter();
   const supabase = createClient();
+  const { tenant } = useParams<{ tenant: string }>();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const [confirmingPayment, setConfirmingPayment] = useState<Order | null>(null);
@@ -67,6 +68,7 @@ export function PedidosTable({
     await supabase.rpc("update_order_status", {
       p_order_id: order.id,
       p_novo_status: novoStatus,
+      p_tenant_slug: tenant,
       p_changed_by: user?.id ?? null,
     });
     setPending(null);

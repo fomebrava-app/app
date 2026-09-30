@@ -22,14 +22,28 @@ interface LinksResponse {
 // facilitar o diagnóstico na primeira transação real de teste.
 export async function createInfinitePayCheckoutLink(params: {
   orderId: string;
+  tenantSlug: string;
   items: InfinitePayLineItem[];
   customerName?: string | null;
 }): Promise<string> {
-  const handle = process.env.INFINITEPAY_HANDLE;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  const defaultEmail = process.env.INFINITEPAY_DEFAULT_CUSTOMER_EMAIL;
-  if (!handle) throw new Error("INFINITEPAY_HANDLE não configurado.");
   if (!siteUrl) throw new Error("NEXT_PUBLIC_SITE_URL não configurado.");
+
+  // Cada tenant recebe pagamento na própria conta InfinitePay — o handle
+  // não é mais uma variável de ambiente global, vem de tenants.
+  const admin = createAdminClient();
+  const { data: tenant, error: tenantError } = await admin
+    .from("tenants")
+    .select("infinitepay_handle, infinitepay_default_customer_email")
+    .eq("slug", params.tenantSlug)
+    .maybeSingle();
+
+  if (tenantError) throw tenantError;
+  if (!tenant?.infinitepay_handle) {
+    throw new Error(
+      "Handle da InfinitePay não configurado para este tenant (ver Configurações no painel admin)."
+    );
+  }
 
   // A InfinitePay exige customer.name com pelo menos 3 caracteres quando
   // enviado (HTTP 422 "size cannot be less than 3" caso contrário) — como
@@ -39,17 +53,19 @@ export async function createInfinitePayCheckoutLink(params: {
   const trimmedName = params.customerName?.trim();
   const customer = {
     ...(trimmedName && trimmedName.length >= 3 ? { name: trimmedName } : {}),
-    ...(defaultEmail ? { email: defaultEmail } : {}),
+    ...(tenant.infinitepay_default_customer_email
+      ? { email: tenant.infinitepay_default_customer_email }
+      : {}),
   };
 
   const res = await fetch(LINKS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      handle,
+      handle: tenant.infinitepay_handle,
       order_nsu: params.orderId,
       items: params.items,
-      redirect_url: `${siteUrl}/pagamento/retorno?order_nsu=${params.orderId}`,
+      redirect_url: `${siteUrl}/${params.tenantSlug}/pagamento/retorno?order_nsu=${params.orderId}`,
       webhook_url: `${siteUrl}/api/payments/infinitepay/webhook`,
       ...(Object.keys(customer).length > 0 ? { customer } : {}),
     }),
@@ -83,18 +99,16 @@ interface PaymentCheckResult {
 // assina o payload do webhook, então tratamos ele só como um "avise-me
 // que algo mudou" e confirmamos a autenticidade aqui, direto na API.
 async function checkInfinitePayPayment(params: {
+  handle: string;
   orderNsu: string;
   transactionNsu: string;
   slug: string;
 }): Promise<PaymentCheckResult> {
-  const handle = process.env.INFINITEPAY_HANDLE;
-  if (!handle) throw new Error("INFINITEPAY_HANDLE não configurado.");
-
   const res = await fetch(PAYMENT_CHECK_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      handle,
+      handle: params.handle,
       order_nsu: params.orderNsu,
       transaction_nsu: params.transactionNsu,
       slug: params.slug,
@@ -112,6 +126,9 @@ async function checkInfinitePayPayment(params: {
 // Confirma e aplica o pagamento de um pedido. Chamado tanto pelo webhook
 // quanto pela página de retorno — é a única porta de entrada para marcar
 // um pedido como pago, e é idempotente (seguro de chamar mais de uma vez).
+// O webhook da InfinitePay só manda o order_nsu (id do pedido), sem
+// contexto de tenant — por isso resolve o handle aqui dentro, a partir
+// do tenant_id do próprio pedido, em vez de exigir isso do chamador.
 export async function confirmInfinitePayPayment(params: {
   orderId: string;
   transactionNsu: string;
@@ -123,7 +140,7 @@ export async function confirmInfinitePayPayment(params: {
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
-    .select("id, payment_status")
+    .select("id, payment_status, tenant_id")
     .eq("id", params.orderId)
     .maybeSingle();
 
@@ -133,7 +150,19 @@ export async function confirmInfinitePayPayment(params: {
     return { confirmed: true, alreadyProcessed: true };
   }
 
+  const { data: tenant, error: tenantError } = await supabase
+    .from("tenants")
+    .select("infinitepay_handle")
+    .eq("id", order.tenant_id)
+    .maybeSingle();
+
+  if (tenantError) throw tenantError;
+  if (!tenant?.infinitepay_handle) {
+    throw new Error(`Tenant do pedido ${params.orderId} sem handle InfinitePay configurado.`);
+  }
+
   const check = await checkInfinitePayPayment({
+    handle: tenant.infinitepay_handle,
     orderNsu: params.orderId,
     transactionNsu: params.transactionNsu,
     slug: params.slug,

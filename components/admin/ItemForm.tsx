@@ -15,12 +15,14 @@ import {
 } from "@/components/ui";
 import { IconUpload, IconTrash, IconPlus } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
-import type { MenuCategory, MenuItem, MenuItemStatus } from "@/lib/types";
+import type { MenuCategory, MenuItem, MenuItemStatus, Tenant } from "@/lib/types";
 
 export function ItemForm({
+  tenant,
   categories,
   item,
 }: {
+  tenant: Tenant;
   categories: MenuCategory[];
   item?: MenuItem;
 }) {
@@ -59,7 +61,7 @@ export function ItemForm({
     setUploading(true);
     setErro("");
     try {
-      const path = `${crypto.randomUUID()}-${file.name}`;
+      const path = `${tenant.id}/${crypto.randomUUID()}-${file.name}`;
       const { error } = await supabase.storage.from("menu-images").upload(path, file);
       if (error) throw error;
       const { data } = supabase.storage.from("menu-images").getPublicUrl(path);
@@ -85,7 +87,7 @@ export function ItemForm({
 
     const { data, error } = await supabase
       .from("menu_categories")
-      .insert({ nome: nomeCategoria, ordem: proximaOrdem })
+      .insert({ nome: nomeCategoria, ordem: proximaOrdem, tenant_id: tenant.id })
       .select()
       .single();
 
@@ -128,7 +130,7 @@ export function ItemForm({
 
     const result = isEditing
       ? await supabase.from("menu_items").update(payload).eq("id", item!.id)
-      : await supabase.from("menu_items").insert(payload);
+      : await supabase.from("menu_items").insert({ ...payload, tenant_id: tenant.id });
 
     setSaving(false);
 
@@ -137,14 +139,14 @@ export function ItemForm({
       return;
     }
 
-    router.push("/admin/itens");
+    router.push(`/${tenant.slug}/admin/itens`);
     router.refresh();
   }
 
   async function handleDelete() {
     if (!item) return;
     await supabase.from("menu_items").delete().eq("id", item.id);
-    router.push("/admin/itens");
+    router.push(`/${tenant.slug}/admin/itens`);
     router.refresh();
   }
 

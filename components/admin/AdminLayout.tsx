@@ -1,9 +1,18 @@
+/**
+ * Casca do painel de uma loja: menu, título e conteúdo das telas admin.
+ *
+ * Os links ficam sob o slug da URL. O e-mail do rodapé só mostra a sessão.
+ * "Painel geral" aparece se `GET /api/platform/me` responder ok; a página
+ * `/plataforma` é quem autoriza de novo
+ * (brain-fomebrava/01 - Produto/Gestão.md,
+ * brain-fomebrava/05 - Seguranca/Modelo de Segurança.md).
+ */
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -17,6 +26,7 @@ import {
   IconClose,
   IconPOS,
   IconLayers,
+  IconCalculator,
 } from "@/components/icons";
 
 interface NavItem {
@@ -25,15 +35,42 @@ interface NavItem {
   icon: ReactNode;
 }
 
-const navItems: NavItem[] = [
-  { label: "Visão geral", href: "/admin", icon: <IconDashboard className="h-5 w-5" /> },
-  { label: "Itens do cardápio", href: "/admin/itens", icon: <IconBox className="h-5 w-5" /> },
-  { label: "Pedidos", href: "/admin/pedidos", icon: <IconLayers className="h-5 w-5" /> },
-  { label: "Financeiro", href: "/admin/financeiro", icon: <IconMoney className="h-5 w-5" /> },
-  { label: "PDV", href: "/admin/pdv", icon: <IconPOS className="h-5 w-5" /> },
-  { label: "Configurações", href: "/admin/configuracoes", icon: <IconSettings className="h-5 w-5" /> },
-];
+/**
+ * Monta os atalhos do painel dessa loja.
+ * @param tenant slug da URL
+ * @returns itens com href em `/{tenant}/admin`
+ * Não consulta outro tenant (brain-fomebrava/02 - Arquitetura/Multi-tenant.md).
+ */
+function buildNavItems(tenant: string): NavItem[] {
+  const base = `/${tenant}/admin`;
+  return [
+    { label: "Visão geral", href: base, icon: <IconDashboard className="h-5 w-5" /> },
+    { label: "Itens do cardápio", href: `${base}/itens`, icon: <IconBox className="h-5 w-5" /> },
+    { label: "Pedidos", href: `${base}/pedidos`, icon: <IconLayers className="h-5 w-5" /> },
+    { label: "Financeiro", href: `${base}/financeiro`, icon: <IconMoney className="h-5 w-5" /> },
+    {
+      label: "Precificação",
+      href: `${base}/precificacao`,
+      icon: <IconCalculator className="h-5 w-5" />,
+    },
+    { label: "PDV", href: `${base}/pdv`, icon: <IconPOS className="h-5 w-5" /> },
+    {
+      label: "Configurações",
+      href: `${base}/configuracoes`,
+      icon: <IconSettings className="h-5 w-5" />,
+    },
+  ];
+}
 
+/**
+ * Desenha o menu fixo e o do celular, e a área da página.
+ * @param title título da tela
+ * @param subtitle linha opcional sob o título
+ * @param actions botões opcionais no cabeçalho
+ * @param children conteúdo da tela
+ * Efeito: lê se a sessão é admin geral e qual é o e-mail, só para exibir.
+ * O que o admin da loja gerencia está em brain-fomebrava/01 - Produto/Gestão.md.
+ */
 export function AdminLayout({
   title,
   subtitle,
@@ -47,12 +84,43 @@ export function AdminLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { tenant } = useParams<{ tenant: string }>();
   const [open, setOpen] = useState(false);
-  const supabase = createClient();
+  const [platformAdmin, setPlatformAdmin] = useState(false);
+  const [email, setEmail] = useState("");
 
+  useEffect(() => {
+    let active = true;
+    fetch("/api/platform/me")
+      .then((res) => {
+        if (active) setPlatformAdmin(res.ok);
+      })
+      .catch(() => {
+        if (active) setPlatformAdmin(false);
+      });
+    createClient()
+      .auth.getUser()
+      .then(({ data }) => {
+        if (active) setEmail(data.user?.email ?? "");
+      })
+      .catch(() => {
+        if (active) setEmail("");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  const supabase = createClient();
+  const navItems = buildNavItems(tenant);
+  const adminBase = `/${tenant}/admin`;
+
+  /**
+   * Encerra a sessão e volta para `/login`.
+   * Não apaga dados da loja (brain-fomebrava/02 - Arquitetura/Autenticação e RLS.md).
+   */
   async function handleLogout() {
     await supabase.auth.signOut();
-    router.push("/admin/login");
+    router.push("/login");
     router.refresh();
   }
 
@@ -75,7 +143,7 @@ export function AdminLayout({
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
         {navItems.map((item) => {
           const isActive =
-            item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+            item.href === adminBase ? pathname === adminBase : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}
@@ -98,8 +166,20 @@ export function AdminLayout({
 
         <div className="my-3 border-t border-black" />
 
+        {platformAdmin && (
+          <Link
+            href="/plataforma"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-black transition-colors hover:bg-neutral-50"
+          >
+            <span className="text-black">
+              <IconSettings className="h-5 w-5" />
+            </span>
+            Painel geral
+          </Link>
+        )}
         <Link
-          href="/"
+          href={`/${tenant}`}
           onClick={() => setOpen(false)}
           className="flex w-full items-center gap-3 rounded px-3 py-2.5 text-sm font-medium text-black transition-colors hover:bg-neutral-50"
         >
@@ -118,6 +198,13 @@ export function AdminLayout({
           Sair
         </button>
       </nav>
+      {email && (
+        <div className="border-t border-neutral-200 px-5 py-3">
+          <p className="truncate text-xs text-neutral-500" title={email}>
+            {email}
+          </p>
+        </div>
+      )}
     </div>
   );
 

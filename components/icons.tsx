@@ -61,6 +61,15 @@ export function IconMoney(props: IconProps) {
   );
 }
 
+export function IconCalculator(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <rect x="4" y="2" width="16" height="20" rx="2" />
+      <path d="M8 6h8v4H8zM8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" />
+    </svg>
+  );
+}
+
 export function IconUsers(props: IconProps) {
   return (
     <svg {...base} {...props}>

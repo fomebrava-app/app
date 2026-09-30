@@ -3,16 +3,27 @@
 // projeto Supabase existir, rodar `npx supabase gen types typescript` e
 // considerar substituir/complementar isto pelos tipos gerados.
 
+export interface Tenant {
+  id: string;
+  slug: string;
+  nome: string;
+  infinitepay_handle: string | null;
+  infinitepay_default_customer_email: string | null;
+  created_at: string;
+}
+
 export type MenuItemStatus = "disponivel" | "esgotado" | "inativo";
 
 export interface MenuCategory {
   id: number;
+  tenant_id: string;
   nome: string;
   ordem: number;
 }
 
 export interface MenuItem {
   id: string;
+  tenant_id: string;
   nome: string;
   categoria_id: number | null;
   descricao_curta: string | null;
@@ -47,6 +58,7 @@ export type PaymentStatus = "pendente" | "pago" | "falhou";
 
 export interface Order {
   id: string;
+  tenant_id: string;
   pickup_code: string;
   channel: OrderChannel;
   status: OrderStatus;
@@ -82,6 +94,7 @@ export interface OrderWithItems extends Order {
 
 export interface Expense {
   id: string;
+  tenant_id: string;
   descricao: string;
   categoria: string;
   valor: number;
@@ -97,10 +110,12 @@ export interface FinanceLedgerEntry {
   valor: number;
   data: string;
   referencia_id: string;
+  tenant_id: string;
 }
 
 export interface EventSettings {
-  id: 1;
+  id: number;
+  tenant_id: string;
   event_name: string;
   whatsapp_default_number: string | null;
   whatsapp_message_template: string | null;
@@ -111,6 +126,7 @@ export type ProfileRole = "admin" | "operador_pdv";
 
 export interface Profile {
   id: string;
+  tenant_id: string | null;
   full_name: string | null;
   telefone: string | null;
   role: ProfileRole;
@@ -118,10 +134,22 @@ export interface Profile {
 
 export interface PdvLink {
   id: string;
+  tenant_id: string;
   token: string;
   label: string;
   ativo: boolean;
   created_by: string | null;
+  created_at: string;
+}
+
+export interface PricingScenarioSummary {
+  id: string;
+  nome: string;
+  total_budget: number;
+  total_planned_cost: number;
+  suggested_revenue: number;
+  reserve_percentage: number;
+  fundraising_target: number;
   created_at: string;
 }
 

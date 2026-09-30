@@ -19,11 +19,14 @@ export async function POST(request: Request) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, tenant_id")
     .eq("id", user.id)
     .maybeSingle();
   if (profile?.role !== "admin") {
     return NextResponse.json({ error: "Apenas administradores podem criar PDVs." }, { status: 403 });
+  }
+  if (!profile.tenant_id) {
+    return NextResponse.json({ error: "Usuário sem tenant associado." }, { status: 400 });
   }
 
   const body = (await request.json()) as Partial<CreatePdvLinkBody>;
@@ -42,7 +45,13 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase
     .from("pdv_links")
-    .insert({ token, label, password_hash: passwordHash, created_by: user.id })
+    .insert({
+      token,
+      label,
+      password_hash: passwordHash,
+      created_by: user.id,
+      tenant_id: profile.tenant_id,
+    })
     .select("id, token, label, ativo, created_by, created_at")
     .single();
 

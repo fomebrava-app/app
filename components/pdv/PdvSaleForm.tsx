@@ -24,10 +24,12 @@ function unitPrice(item: MenuItem) {
 }
 
 export function PdvSaleForm({
+  tenant,
   items,
   pdvToken,
   pdvPassword,
 }: {
+  tenant: string;
   items: MenuItem[];
   pdvToken: string;
   pdvPassword: string;
@@ -98,6 +100,7 @@ export function PdvSaleForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           channel: "pdv",
+          tenant,
           payment_method: paymentMethod,
           customer_name: customerName || undefined,
           pdv_token: pdvToken,
@@ -111,7 +114,7 @@ export function PdvSaleForm({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erro ao registrar pedido.");
 
-      const trackingUrl = `${window.location.origin}/pedido/${data.pickupCode}`;
+      const trackingUrl = `${window.location.origin}/${tenant}/pedido/${data.pickupCode}`;
       setConfirmation({ pickupCode: data.pickupCode, trackingUrl });
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Erro inesperado.");

@@ -17,7 +17,13 @@ import { createClient } from "@/lib/supabase/client";
 import { formatBRL } from "@/lib/format";
 import type { FinanceLedgerEntry } from "@/lib/types";
 
-export function FinanceClient({ ledger }: { ledger: FinanceLedgerEntry[] }) {
+export function FinanceClient({
+  tenantId,
+  ledger,
+}: {
+  tenantId: string;
+  ledger: FinanceLedgerEntry[];
+}) {
   const router = useRouter();
   const supabase = createClient();
   const [modalOpen, setModalOpen] = useState(false);
@@ -48,6 +54,7 @@ export function FinanceClient({ ledger }: { ledger: FinanceLedgerEntry[] }) {
       descricao: descricao.trim(),
       categoria: categoria.trim() || "Geral",
       valor: Number(valor.replace(",", ".")),
+      tenant_id: tenantId,
     });
     setSaving(false);
     if (error) {
