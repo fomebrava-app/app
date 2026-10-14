@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { PublicHeader } from "@/components/public/PublicHeader";
 import { Button, Card, EmptyState } from "@/components/ui";
 import { IconArrowLeft, IconCart, IconTrash } from "@/components/icons";
+import { MontagemTexto } from "@/components/orders/MontagemTexto";
+import { cartUnitPrice } from "@/lib/customization";
 import { useCart } from "@/lib/cart-context";
 import { formatBRL } from "@/lib/format";
 
@@ -50,9 +52,9 @@ export default function CarrinhoPage() {
 
         <Card className="mt-6 divide-y divide-neutral-100">
           {cart.map((item) => {
-            const unit = item.menuItem.preco_promocional ?? item.menuItem.preco;
+            const unit = cartUnitPrice(item);
             return (
-              <div key={item.menuItem.id} className="flex gap-3 p-4">
+              <div key={item.lineId} className="flex gap-3 p-4">
                 {item.menuItem.imagem_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -68,12 +70,16 @@ export default function CarrinhoPage() {
                     {item.menuItem.nome}
                   </p>
                   <p className="text-xs text-neutral-500">{formatBRL(unit)} / un.</p>
+                  <MontagemTexto
+                    retirados={item.customization.removals.map((removal) => removal.nome)}
+                    complementos={item.customization.complements.map((complement) => complement.nome)}
+                  />
 
                   <div className="mt-2 flex items-center justify-between">
                     <div className="flex items-center rounded border border-neutral-300">
                       <button
                         onClick={() =>
-                          updateQuantity(item.menuItem.id, item.quantidade - 1)
+                          updateQuantity(item.lineId, item.quantidade - 1)
                         }
                         className="px-2.5 py-1 text-neutral-600 hover:text-black"
                         aria-label="Diminuir"
@@ -85,7 +91,7 @@ export default function CarrinhoPage() {
                       </span>
                       <button
                         onClick={() =>
-                          updateQuantity(item.menuItem.id, item.quantidade + 1)
+                          updateQuantity(item.lineId, item.quantidade + 1)
                         }
                         className="px-2.5 py-1 text-neutral-600 hover:text-black"
                         aria-label="Aumentar"
@@ -98,7 +104,7 @@ export default function CarrinhoPage() {
                         {formatBRL(unit * item.quantidade)}
                       </span>
                       <button
-                        onClick={() => removeFromCart(item.menuItem.id)}
+                        onClick={() => removeFromCart(item.lineId)}
                         aria-label="Remover"
                         className="text-neutral-400 hover:text-black"
                       >

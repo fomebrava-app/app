@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getMenuItems, getTenantBySlug } from "@/lib/queries";
+import { getMenuCustomizations, getMenuItems, getTenantBySlug } from "@/lib/queries";
 import { PdvGate } from "./PdvGate";
 
 // Tela pública protegida por senha — nunca deve ser servida como HTML estático.
@@ -24,7 +24,10 @@ export default async function PdvTokenPage({
 
   if (!link || link.tenant_id !== tenant.id) notFound();
 
-  const items = await getMenuItems(tenant.id);
+  const [items, customizations] = await Promise.all([
+    getMenuItems(tenant.id),
+    getMenuCustomizations(tenant.id),
+  ]);
 
   return (
     <PdvGate
@@ -33,6 +36,7 @@ export default async function PdvTokenPage({
       label={link.label}
       ativo={link.ativo}
       items={items}
+      customizations={customizations}
     />
   );
 }

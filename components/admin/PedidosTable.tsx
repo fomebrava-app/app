@@ -2,6 +2,7 @@
 
 import { Fragment, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { MontagemTexto } from "@/components/orders/MontagemTexto";
 import { Button, Card, EmptyState, Field, Modal, Select, StatusBadge, Textarea } from "@/components/ui";
 import { IconAlert, IconLayers } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
@@ -158,13 +159,19 @@ export function PedidosTable({
                     <td colSpan={6} className="bg-neutral-50 px-4 py-3">
                       <ul className="space-y-1 text-sm text-neutral-700">
                         {(itemsByOrder[order.id] ?? []).map((item) => (
-                          <li key={item.id} className="flex justify-between">
-                            <span>
-                              {item.quantidade}x {item.nome_snapshot}
-                            </span>
-                            <span className="font-medium text-black">
-                              {formatBRL(item.subtotal)}
-                            </span>
+                          <li key={item.id}>
+                            <div className="flex justify-between gap-3">
+                              <span>
+                                {item.quantidade}x {item.nome_snapshot}
+                              </span>
+                              <span className="font-medium text-black">
+                                {formatBRL(item.subtotal)}
+                              </span>
+                            </div>
+                            <MontagemTexto
+                              retirados={item.retirados}
+                              complementos={item.complementos}
+                            />
                           </li>
                         ))}
                       </ul>

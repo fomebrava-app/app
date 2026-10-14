@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { paymentDescription } from "@/lib/customization";
 import { createInfinitePayCheckoutLink } from "@/lib/infinitepay";
 import { verifyPdvPassword } from "@/lib/pdv-auth";
 
 interface OrderItemInput {
   menu_item_id: string;
   quantidade: number;
+  remover_ids?: string[];
+  complemento_ids?: string[];
 }
 
 interface CreateOrderBody {
@@ -89,28 +92,47 @@ export async function POST(request: Request) {
 
   const order = data[0];
 
-  const { data: menuItems, error: menuError } = await supabase
-    .from("menu_items")
-    .select("id, nome, preco, preco_promocional")
-    .in(
-      "id",
-      body.items.map((i) => i.menu_item_id)
-    );
+  const admin = createAdminClient();
+  const { data: lines, error: linesError } = await admin
+    .from("order_items")
+    .select("id, nome_snapshot, preco_unitario_snapshot, quantidade")
+    .eq("order_id", order.id);
 
-  if (menuError || !menuItems) {
+  if (linesError || !lines?.length) {
     return NextResponse.json(
-      { error: menuError?.message ?? "Erro ao carregar itens do pedido." },
+      { error: linesError?.message ?? "Erro ao carregar itens do pedido." },
       { status: 400 }
     );
   }
 
-  const linkItems = body.items.map((i) => {
-    const menuItem = menuItems.find((m) => m.id === i.menu_item_id)!;
-    const price = menuItem.preco_promocional ?? menuItem.preco;
+  const lineIds = lines.map((line) => line.id);
+  const [{ data: removals, error: removalsError }, { data: complements, error: complementsError }] =
+    await Promise.all([
+      admin.from("order_item_removals").select("order_item_id, nome_snapshot").in("order_item_id", lineIds),
+      admin
+        .from("order_item_complements")
+        .select("order_item_id, nome_snapshot")
+        .in("order_item_id", lineIds),
+    ]);
+
+  if (removalsError || complementsError) {
+    return NextResponse.json(
+      { error: removalsError?.message ?? complementsError?.message ?? "Erro ao carregar a montagem." },
+      { status: 400 }
+    );
+  }
+
+  const linkItems = lines.map((line) => {
+    const retirados = (removals ?? [])
+      .filter((removal) => removal.order_item_id === line.id)
+      .map((removal) => removal.nome_snapshot);
+    const complementos = (complements ?? [])
+      .filter((complement) => complement.order_item_id === line.id)
+      .map((complement) => complement.nome_snapshot);
     return {
-      quantity: i.quantidade,
-      price: Math.round(price * 100),
-      description: menuItem.nome,
+      quantity: line.quantidade,
+      price: Math.round(Number(line.preco_unitario_snapshot) * 100),
+      description: paymentDescription(line.nome_snapshot, retirados, complementos),
     };
   });
 
@@ -124,6 +146,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       orderId: order.id,
       pickupCode: order.pickup_code,
+      total: order.total,
       paymentUrl,
     });
   } catch (err) {

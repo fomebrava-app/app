@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Button, Card, StatusBadge } from "@/components/ui";
+import { lineIdFor } from "@/lib/customization";
 import { useCart } from "@/lib/cart-context";
 import { formatBRL } from "@/lib/format";
 import type { MenuItem } from "@/lib/types";
@@ -12,7 +13,10 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
   const { tenant } = useParams<{ tenant: string }>();
   const hasPromo = !!item.preco_promocional;
   const esgotado = item.status === "esgotado";
-  const qtyInCart = cart.find((i) => i.menuItem.id === item.id)?.quantidade ?? 0;
+  const plainLine = cart.find((entry) => entry.lineId === lineIdFor(item.id));
+  const qtyInCart = item.personalizavel
+    ? cart.filter((entry) => entry.menuItem.id === item.id).reduce((sum, entry) => sum + entry.quantidade, 0)
+    : (plainLine?.quantidade ?? 0);
 
   return (
     <Card className="flex flex-col overflow-hidden transition-colors hover:border-neutral-400">
@@ -58,10 +62,10 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
               {item.descricao_curta}
             </p>
           )}
-          {qtyInCart > 0 && (
+          {!item.personalizavel && qtyInCart > 0 && (
             <div className="flex flex-shrink-0 items-center rounded border border-neutral-300">
               <button
-                onClick={() => updateQuantity(item.id, qtyInCart - 1)}
+                onClick={() => updateQuantity(plainLine!.lineId, qtyInCart - 1)}
                 className="px-2.5 py-1 text-neutral-600 hover:text-black"
                 aria-label="Diminuir"
               >
@@ -71,7 +75,7 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
                 {qtyInCart}
               </span>
               <button
-                onClick={() => updateQuantity(item.id, qtyInCart + 1)}
+                onClick={() => updateQuantity(plainLine!.lineId, qtyInCart + 1)}
                 className="px-2.5 py-1 text-neutral-600 hover:text-black"
                 aria-label="Aumentar"
               >
@@ -102,14 +106,22 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
           <Link href={`/${tenant}/item/${item.id}`} className="flex-1">
             <Button className="w-full">Ver detalhes</Button>
           </Link>
-          <Button
-            variant="primary"
-            className="flex-1"
-            disabled={esgotado}
-            onClick={() => addToCart(item, 1)}
-          >
-            {qtyInCart > 0 ? `Adicionar (${qtyInCart})` : "Adicionar"}
-          </Button>
+          {item.personalizavel ? (
+            <Link href={`/${tenant}/item/${item.id}`} className="flex-1">
+              <Button variant="primary" className="w-full" disabled={esgotado}>
+                {qtyInCart > 0 ? `Personalizar (${qtyInCart})` : "Personalizar"}
+              </Button>
+            </Link>
+          ) : (
+            <Button
+              variant="primary"
+              className="flex-1"
+              disabled={esgotado}
+              onClick={() => addToCart(item, 1)}
+            >
+              {qtyInCart > 0 ? `Adicionar (${qtyInCart})` : "Adicionar"}
+            </Button>
+          )}
         </div>
       </div>
     </Card>

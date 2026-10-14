@@ -5,7 +5,7 @@ import { AddToCartControl } from "@/components/public/AddToCartControl";
 import { StatusBadge } from "@/components/ui";
 import { IconArrowLeft } from "@/components/icons";
 import { formatBRL } from "@/lib/format";
-import { getMenuItemById, getTenantBySlug } from "@/lib/queries";
+import { getMenuItemById, getMenuItemCustomization, getTenantBySlug } from "@/lib/queries";
 
 export default async function ItemPage({
   params,
@@ -21,6 +21,10 @@ export default async function ItemPage({
   if (!item || item.status === "inativo") {
     notFound();
   }
+
+  const customization = item.personalizavel
+    ? await getMenuItemCustomization(item.id, tenant.id)
+    : { ingredients: [], complements: [] };
 
   const hasPromo = !!item.preco_promocional;
   const esgotado = item.status === "esgotado";
@@ -89,7 +93,11 @@ export default async function ItemPage({
               </p>
             )}
 
-            <AddToCartControl item={item} />
+            <AddToCartControl
+              item={item}
+              ingredients={customization.ingredients}
+              complements={customization.complements}
+            />
 
             {item.descricao_completa && (
               <div className="mt-8 border-t border-neutral-200 pt-6">

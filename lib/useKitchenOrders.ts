@@ -7,6 +7,8 @@ import type { OrderStatus } from "@/lib/types";
 export interface KitchenOrderItem {
   nome: string;
   quantidade: number;
+  retirados?: string[];
+  complementos?: string[];
 }
 
 export interface KitchenOrder {

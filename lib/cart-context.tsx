@@ -8,13 +8,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { CartItem, MenuItem } from "./types";
+import { cartUnitPrice, EMPTY_CUSTOMIZATION, lineIdFor } from "./customization";
+import type { CartCustomization, CartItem, MenuItem } from "./types";
 
 interface CartState {
   cart: CartItem[];
-  addToCart: (item: MenuItem, qty?: number) => void;
-  removeFromCart: (menuItemId: string) => void;
-  updateQuantity: (menuItemId: string, qty: number) => void;
+  addToCart: (item: MenuItem, qty?: number, customization?: CartCustomization) => void;
+  removeFromCart: (lineId: string) => void;
+  updateQuantity: (lineId: string, qty: number) => void;
   clearCart: () => void;
   cartCount: number;
   cartTotal: number;
@@ -22,49 +23,42 @@ interface CartState {
 
 const CartContext = createContext<CartState | null>(null);
 
-function unitPrice(item: MenuItem) {
-  return item.preco_promocional ?? item.preco;
-}
-
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
 
-  const addToCart = useCallback((menuItem: MenuItem, qty = 1) => {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.menuItem.id === menuItem.id);
-      if (existing) {
-        return prev.map((i) =>
-          i.menuItem.id === menuItem.id
-            ? { ...i, quantidade: i.quantidade + qty }
-            : i
-        );
-      }
-      return [...prev, { menuItem, quantidade: qty }];
-    });
+  const addToCart = useCallback(
+    (menuItem: MenuItem, qty = 1, customization: CartCustomization = EMPTY_CUSTOMIZATION) => {
+      const lineId = lineIdFor(menuItem.id, customization);
+      setCart((prev) => {
+        const existing = prev.find((item) => item.lineId === lineId);
+        if (existing) {
+          return prev.map((item) =>
+            item.lineId === lineId ? { ...item, quantidade: item.quantidade + qty } : item
+          );
+        }
+        return [...prev, { lineId, menuItem, quantidade: qty, customization }];
+      });
+    },
+    []
+  );
+
+  const removeFromCart = useCallback((lineId: string) => {
+    setCart((prev) => prev.filter((item) => item.lineId !== lineId));
   }, []);
 
-  const removeFromCart = useCallback((menuItemId: string) => {
-    setCart((prev) => prev.filter((i) => i.menuItem.id !== menuItemId));
-  }, []);
-
-  const updateQuantity = useCallback((menuItemId: string, qty: number) => {
+  const updateQuantity = useCallback((lineId: string, qty: number) => {
     setCart((prev) => {
-      if (qty <= 0) return prev.filter((i) => i.menuItem.id !== menuItemId);
-      return prev.map((i) =>
-        i.menuItem.id === menuItemId ? { ...i, quantidade: qty } : i
-      );
+      if (qty <= 0) return prev.filter((item) => item.lineId !== lineId);
+      return prev.map((item) => (item.lineId === lineId ? { ...item, quantidade: qty } : item));
     });
   }, []);
 
   const clearCart = useCallback(() => setCart([]), []);
 
-  const cartCount = useMemo(
-    () => cart.reduce((s, i) => s + i.quantidade, 0),
-    [cart]
-  );
+  const cartCount = useMemo(() => cart.reduce((sum, item) => sum + item.quantidade, 0), [cart]);
 
   const cartTotal = useMemo(
-    () => cart.reduce((s, i) => s + unitPrice(i.menuItem) * i.quantidade, 0),
+    () => cart.reduce((sum, item) => sum + cartUnitPrice(item) * item.quantidade, 0),
     [cart]
   );
 

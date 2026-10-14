@@ -4,21 +4,17 @@
     "type": "split",
     "children": [
       {
-        "id": "3a6de5342d8f0417",
+        "id": "11a0002f9cd5e025",
         "type": "tabs",
         "children": [
           {
-            "id": "cefad4951ec84b6b",
+            "id": "915ad6b57c9f63e1",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "05 - Seguranca/Riscos Conhecidos.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "Riscos Conhecidos"
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Visualização em gráfico"
             }
           }
         ]
@@ -188,8 +184,9 @@
       "bases:Criar nova base": false
     }
   },
-  "active": "cefad4951ec84b6b",
+  "active": "915ad6b57c9f63e1",
   "lastOpenFiles": [
+    "05 - Seguranca/Riscos Conhecidos.md",
     "00 - Home/Regras para Agentes de IA.md",
     "00 - Home/Fomebrava - Home.md"
   ]

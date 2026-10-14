@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Card, EmptyState, Toggle } from "@/components/ui";
 import { IconBox, IconEdit } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
@@ -17,6 +17,7 @@ export function ItensTable({
   categories: MenuCategory[];
 }) {
   const router = useRouter();
+  const { tenant } = useParams<{ tenant: string }>();
   const supabase = createClient();
   const [pending, setPending] = useState<string | null>(null);
 
@@ -86,7 +87,7 @@ export function ItensTable({
                 </td>
                 <td className="px-4 py-3 text-right">
                   <Link
-                    href={`/admin/itens/${item.id}`}
+                    href={`/${tenant}/admin/itens/${item.id}`}
                     className="inline-flex items-center gap-1 text-neutral-500 hover:text-black"
                   >
                     <IconEdit className="h-4 w-4" /> Editar

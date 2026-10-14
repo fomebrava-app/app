@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { MontagemTexto } from "@/components/orders/MontagemTexto";
 import { Card, Loading } from "@/components/ui";
 import { IconChefHat, IconClock, IconMonitor } from "@/components/icons";
 import { useKitchenOrders, type KitchenOrder } from "@/lib/useKitchenOrders";
@@ -118,9 +119,16 @@ export function CozinhaClient({ tenant }: { tenant: string }) {
                   )}
                   <ul className="mt-3 space-y-1 border-t border-neutral-800 pt-3 text-sm">
                     {order.items.map((item, idx) => (
-                      <li key={idx} className="flex justify-between gap-2">
-                        <span>{item.nome}</span>
-                        <span className="font-semibold">{item.quantidade}x</span>
+                      <li key={idx}>
+                        <div className="flex justify-between gap-2">
+                          <span>{item.nome}</span>
+                          <span className="font-semibold">{item.quantidade}x</span>
+                        </div>
+                        <MontagemTexto
+                          retirados={item.retirados}
+                          complementos={item.complementos}
+                          className="text-xs text-neutral-400"
+                        />
                       </li>
                     ))}
                   </ul>

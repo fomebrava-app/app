@@ -33,9 +33,28 @@ export interface MenuItem {
   imagem_url: string | null;
   status: MenuItemStatus;
   destaque: boolean;
+  personalizavel: boolean;
   ordem: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface MenuItemIngredient {
+  id: string;
+  tenant_id: string;
+  menu_item_id: string;
+  nome: string;
+  ordem: number;
+}
+
+export interface MenuItemComplement {
+  id: string;
+  tenant_id: string;
+  menu_item_id: string;
+  nome: string;
+  cobra: boolean;
+  preco: number | null;
+  ordem: number;
 }
 
 export type OrderChannel = "online" | "pdv";
@@ -86,6 +105,25 @@ export interface OrderItem {
   preco_unitario_snapshot: number;
   quantidade: number;
   subtotal: number;
+  retirados?: string[];
+  complementos?: string[];
+}
+
+export interface CartRemoval {
+  id: string;
+  nome: string;
+}
+
+export interface CartComplement {
+  id: string;
+  nome: string;
+  cobra: boolean;
+  preco: number | null;
+}
+
+export interface CartCustomization {
+  removals: CartRemoval[];
+  complements: CartComplement[];
 }
 
 export interface OrderWithItems extends Order {
@@ -155,8 +193,10 @@ export interface PricingScenarioSummary {
 
 // Carrinho — só existe no client, nunca é persistido diretamente.
 export interface CartItem {
+  lineId: string;
   menuItem: MenuItem;
   quantidade: number;
+  customization: CartCustomization;
 }
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {

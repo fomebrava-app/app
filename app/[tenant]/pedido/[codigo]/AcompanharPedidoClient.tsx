@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { PublicHeader } from "@/components/public/PublicHeader";
+import { MontagemTexto } from "@/components/orders/MontagemTexto";
 import { Card, EmptyState, Loading, StatusBadge } from "@/components/ui";
 import { IconCheck, IconChefHat } from "@/components/icons";
 import { useCart } from "@/lib/cart-context";
@@ -16,6 +17,8 @@ interface OrderItem {
   quantidade: number;
   preco_unitario: number;
   subtotal: number;
+  retirados?: string[];
+  complementos?: string[];
 }
 
 interface OrderDetail {
@@ -245,13 +248,16 @@ export function AcompanharPedidoClient({
           </h2>
           <ul className="space-y-2 text-sm">
             {order.items.map((item, idx) => (
-              <li key={idx} className="flex justify-between">
-                <span className="text-neutral-700">
-                  {item.quantidade}x {item.nome}
-                </span>
-                <span className="font-medium text-black">
-                  {formatBRL(item.subtotal)}
-                </span>
+              <li key={idx}>
+                <div className="flex justify-between gap-3">
+                  <span className="text-neutral-700">
+                    {item.quantidade}x {item.nome}
+                  </span>
+                  <span className="font-medium text-black">
+                    {formatBRL(item.subtotal)}
+                  </span>
+                </div>
+                <MontagemTexto retirados={item.retirados} complementos={item.complementos} />
               </li>
             ))}
           </ul>

@@ -1,15 +1,21 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { MontagemTexto } from "@/components/orders/MontagemTexto";
+import { PdvCustomizationModal } from "@/components/pdv/PdvCustomizationModal";
 import { Button, Card, Field, Input, SearchField, Select, StatusBadge, Toast } from "@/components/ui";
 import { IconPOS, IconTrash, IconWhatsapp, IconCopy } from "@/components/icons";
+import { EMPTY_CUSTOMIZATION, lineIdFor, menuUnitPrice } from "@/lib/customization";
 import { formatBRL } from "@/lib/format";
+import type { MenuCustomizations } from "@/lib/queries";
 import { buildOrderTrackingMessage, buildWhatsAppLink } from "@/lib/whatsapp";
-import type { MenuItem } from "@/lib/types";
+import type { CartCustomization, MenuItem } from "@/lib/types";
 
 interface PdvCartItem {
+  lineId: string;
   menuItem: MenuItem;
   quantidade: number;
+  customization: CartCustomization;
 }
 
 type PaymentMethod = "dinheiro" | "pix_presencial";
@@ -19,18 +25,27 @@ interface Confirmation {
   trackingUrl: string;
 }
 
-function unitPrice(item: MenuItem) {
-  return item.preco_promocional ?? item.preco;
+function unitPrice(item: MenuItem, customization: CartCustomization = EMPTY_CUSTOMIZATION) {
+  return menuUnitPrice(item, customization);
+}
+
+function hasCustomizationChoice(
+  item: MenuItem,
+  lists: { ingredients: { id: string }[]; complements: { id: string }[] } | undefined
+) {
+  return Boolean(item.personalizavel && lists && (lists.ingredients.length > 0 || lists.complements.length > 0));
 }
 
 export function PdvSaleForm({
   tenant,
   items,
+  customizations,
   pdvToken,
   pdvPassword,
 }: {
   tenant: string;
   items: MenuItem[];
+  customizations: MenuCustomizations;
   pdvToken: string;
   pdvPassword: string;
 }) {
@@ -43,6 +58,7 @@ export function PdvSaleForm({
   const [erro, setErro] = useState("");
   const [toast, setToast] = useState("");
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const [customizing, setCustomizing] = useState<MenuItem | null>(null);
 
   const filteredItems = useMemo(() => {
     const q = search.toLowerCase();
@@ -50,27 +66,34 @@ export function PdvSaleForm({
   }, [items, search]);
 
   const total = useMemo(
-    () => cart.reduce((s, i) => s + unitPrice(i.menuItem) * i.quantidade, 0),
+    () => cart.reduce((s, i) => s + unitPrice(i.menuItem, i.customization) * i.quantidade, 0),
     [cart]
   );
 
-  function addItem(item: MenuItem) {
+  function addItem(item: MenuItem, customization: CartCustomization = EMPTY_CUSTOMIZATION) {
+    const lineId = lineIdFor(item.id, customization);
     setCart((prev) => {
-      const existing = prev.find((i) => i.menuItem.id === item.id);
+      const existing = prev.find((i) => i.lineId === lineId);
       if (existing) {
-        return prev.map((i) =>
-          i.menuItem.id === item.id ? { ...i, quantidade: i.quantidade + 1 } : i
-        );
+        return prev.map((i) => (i.lineId === lineId ? { ...i, quantidade: i.quantidade + 1 } : i));
       }
-      return [...prev, { menuItem: item, quantidade: 1 }];
+      return [...prev, { lineId, menuItem: item, quantidade: 1, customization }];
     });
   }
 
-  function updateQty(itemId: string, qty: number) {
+  function updateQty(lineId: string, qty: number) {
     setCart((prev) => {
-      if (qty <= 0) return prev.filter((i) => i.menuItem.id !== itemId);
-      return prev.map((i) => (i.menuItem.id === itemId ? { ...i, quantidade: qty } : i));
+      if (qty <= 0) return prev.filter((i) => i.lineId !== lineId);
+      return prev.map((i) => (i.lineId === lineId ? { ...i, quantidade: qty } : i));
     });
+  }
+
+  function handleCardClick(item: MenuItem) {
+    if (hasCustomizationChoice(item, customizations[item.id])) {
+      setCustomizing(item);
+      return;
+    }
+    addItem(item);
   }
 
   function resetForm() {
@@ -108,6 +131,8 @@ export function PdvSaleForm({
           items: cart.map((i) => ({
             menu_item_id: i.menuItem.id,
             quantidade: i.quantidade,
+            remover_ids: i.customization.removals.map((removal) => removal.id),
+            complemento_ids: i.customization.complements.map((complement) => complement.id),
           })),
         }),
       });
@@ -179,7 +204,7 @@ export function PdvSaleForm({
             {filteredItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => addItem(item)}
+                onClick={() => handleCardClick(item)}
                 className="flex flex-col items-start rounded border border-neutral-200 p-3 text-left hover:border-neutral-400 hover:bg-neutral-50"
               >
                 <span className="text-sm font-medium text-black">{item.nome}</span>
@@ -227,19 +252,23 @@ export function PdvSaleForm({
           ) : (
             <ul className="space-y-3">
               {cart.map((i) => (
-                <li key={i.menuItem.id} className="flex items-center justify-between gap-2">
+                <li key={i.lineId} className="flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-black">{i.menuItem.nome}</p>
+                    <MontagemTexto
+                      retirados={i.customization.removals.map((removal) => removal.nome)}
+                      complementos={i.customization.complements.map((complement) => complement.nome)}
+                    />
                     <div className="mt-1 flex items-center gap-1.5">
                       <button
-                        onClick={() => updateQty(i.menuItem.id, i.quantidade - 1)}
+                        onClick={() => updateQty(i.lineId, i.quantidade - 1)}
                         className="rounded border border-neutral-300 px-1.5 text-xs text-neutral-600 hover:text-black"
                       >
                         −
                       </button>
                       <span className="text-xs font-medium">{i.quantidade}</span>
                       <button
-                        onClick={() => updateQty(i.menuItem.id, i.quantidade + 1)}
+                        onClick={() => updateQty(i.lineId, i.quantidade + 1)}
                         className="rounded border border-neutral-300 px-1.5 text-xs text-neutral-600 hover:text-black"
                       >
                         +
@@ -248,10 +277,10 @@ export function PdvSaleForm({
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-semibold text-black">
-                      {formatBRL(unitPrice(i.menuItem) * i.quantidade)}
+                      {formatBRL(unitPrice(i.menuItem, i.customization) * i.quantidade)}
                     </span>
                     <button
-                      onClick={() => updateQty(i.menuItem.id, 0)}
+                      onClick={() => updateQty(i.lineId, 0)}
                       className="text-neutral-400 hover:text-black"
                       aria-label="Remover"
                     >
@@ -291,6 +320,19 @@ export function PdvSaleForm({
           </Button>
         </Card>
       </div>
+      {customizing && (
+        <PdvCustomizationModal
+          key={customizing.id}
+          item={customizing}
+          ingredients={customizations[customizing.id]?.ingredients ?? []}
+          complements={customizations[customizing.id]?.complements ?? []}
+          onClose={() => setCustomizing(null)}
+          onConfirm={(customization) => {
+            addItem(customizing, customization);
+            setCustomizing(null);
+          }}
+        />
+      )}
     </div>
   );
 }

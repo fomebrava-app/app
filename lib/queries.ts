@@ -5,6 +5,8 @@ import type {
   FinanceLedgerEntry,
   MenuCategory,
   MenuItem,
+  MenuItemComplement,
+  MenuItemIngredient,
   Order,
   OrderItem,
   PdvLink,
@@ -55,6 +57,65 @@ export async function getMenuItems(tenantId: string): Promise<MenuItem[]> {
     .order("ordem", { ascending: true });
   if (error) throw error;
   return data ?? [];
+}
+
+export async function getMenuItemCustomization(
+  menuItemId: string,
+  tenantId: string
+): Promise<{ ingredients: MenuItemIngredient[]; complements: MenuItemComplement[] }> {
+  const supabase = await createClient();
+  const [ingredientsRes, complementsRes] = await Promise.all([
+    supabase
+      .from("menu_item_ingredients")
+      .select("*")
+      .eq("menu_item_id", menuItemId)
+      .eq("tenant_id", tenantId)
+      .order("ordem", { ascending: true }),
+    supabase
+      .from("menu_item_complements")
+      .select("*")
+      .eq("menu_item_id", menuItemId)
+      .eq("tenant_id", tenantId)
+      .order("ordem", { ascending: true }),
+  ]);
+  if (ingredientsRes.error) throw ingredientsRes.error;
+  if (complementsRes.error) throw complementsRes.error;
+  return {
+    ingredients: ingredientsRes.data ?? [],
+    complements: complementsRes.data ?? [],
+  };
+}
+
+export type MenuCustomizations = Record<
+  string,
+  { ingredients: MenuItemIngredient[]; complements: MenuItemComplement[] }
+>;
+
+export async function getMenuCustomizations(tenantId: string): Promise<MenuCustomizations> {
+  const supabase = await createClient();
+  const [ingredientsRes, complementsRes] = await Promise.all([
+    supabase
+      .from("menu_item_ingredients")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .order("ordem", { ascending: true }),
+    supabase
+      .from("menu_item_complements")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .order("ordem", { ascending: true }),
+  ]);
+  if (ingredientsRes.error) throw ingredientsRes.error;
+  if (complementsRes.error) throw complementsRes.error;
+
+  const byItem: MenuCustomizations = {};
+  for (const ingredient of ingredientsRes.data ?? []) {
+    (byItem[ingredient.menu_item_id] ??= { ingredients: [], complements: [] }).ingredients.push(ingredient);
+  }
+  for (const complement of complementsRes.data ?? []) {
+    (byItem[complement.menu_item_id] ??= { ingredients: [], complements: [] }).complements.push(complement);
+  }
+  return byItem;
 }
 
 export async function getMenuItemById(id: string, tenantId: string): Promise<MenuItem | null> {
@@ -150,8 +211,40 @@ export async function getAllOrdersAdmin(
       .select("*")
       .in("order_id", orderIds);
     if (itemsError) throw itemsError;
+    const itemIds = (items ?? []).map((item) => item.id);
+    const retiradosPorItem: Record<string, string[]> = {};
+    const complementosPorItem: Record<string, string[]> = {};
+
+    if (itemIds.length > 0) {
+      const [{ data: removals, error: removalsError }, { data: complements, error: complementsError }] =
+        await Promise.all([
+          supabase
+            .from("order_item_removals")
+            .select("order_item_id, nome_snapshot")
+            .eq("tenant_id", tenantId)
+            .in("order_item_id", itemIds),
+          supabase
+            .from("order_item_complements")
+            .select("order_item_id, nome_snapshot")
+            .eq("tenant_id", tenantId)
+            .in("order_item_id", itemIds),
+        ]);
+      if (removalsError) throw removalsError;
+      if (complementsError) throw complementsError;
+      for (const removal of removals ?? []) {
+        (retiradosPorItem[removal.order_item_id] ??= []).push(removal.nome_snapshot);
+      }
+      for (const complement of complements ?? []) {
+        (complementosPorItem[complement.order_item_id] ??= []).push(complement.nome_snapshot);
+      }
+    }
+
     for (const item of items ?? []) {
-      (itemsByOrder[item.order_id] ??= []).push(item);
+      (itemsByOrder[item.order_id] ??= []).push({
+        ...item,
+        retirados: retiradosPorItem[item.id] ?? [],
+        complementos: complementosPorItem[item.id] ?? [],
+      });
     }
   }
 

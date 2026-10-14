@@ -15,16 +15,39 @@ import {
 } from "@/components/ui";
 import { IconUpload, IconTrash, IconPlus } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
-import type { MenuCategory, MenuItem, MenuItemStatus, Tenant } from "@/lib/types";
+import type {
+  MenuCategory,
+  MenuItem,
+  MenuItemComplement,
+  MenuItemIngredient,
+  MenuItemStatus,
+  Tenant,
+} from "@/lib/types";
+
+interface IngredientDraft {
+  key: string;
+  nome: string;
+}
+
+interface ComplementDraft {
+  key: string;
+  nome: string;
+  cobra: boolean;
+  preco: string;
+}
 
 export function ItemForm({
   tenant,
   categories,
   item,
+  ingredients = [],
+  complements = [],
 }: {
   tenant: Tenant;
   categories: MenuCategory[];
   item?: MenuItem;
+  ingredients?: MenuItemIngredient[];
+  complements?: MenuItemComplement[];
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -48,6 +71,18 @@ export function ItemForm({
   );
   const [status, setStatus] = useState<MenuItemStatus>(item?.status ?? "disponivel");
   const [destaque, setDestaque] = useState(item?.destaque ?? false);
+  const [personalizavel, setPersonalizavel] = useState(item?.personalizavel ?? false);
+  const [ingredientes, setIngredientes] = useState<IngredientDraft[]>(
+    ingredients.map((ingredient) => ({ key: ingredient.id, nome: ingredient.nome }))
+  );
+  const [complementos, setComplementos] = useState<ComplementDraft[]>(
+    complements.map((complement) => ({
+      key: complement.id,
+      nome: complement.nome,
+      cobra: complement.cobra,
+      preco: complement.preco == null ? "" : String(complement.preco),
+    }))
+  );
   const [imagemUrl, setImagemUrl] = useState(item?.imagem_url ?? "");
 
   const [uploading, setUploading] = useState(false);
@@ -125,19 +160,100 @@ export function ItemForm({
         : null,
       status,
       destaque,
+      personalizavel,
       imagem_url: imagemUrl || null,
     };
 
+    const ingredientesValidos = ingredientes
+      .map((ingredient) => ({ ...ingredient, nome: ingredient.nome.trim() }))
+      .filter((ingredient) => ingredient.nome);
+    const complementosValidos = complementos
+      .map((complement) => ({ ...complement, nome: complement.nome.trim() }))
+      .filter((complement) => complement.nome || complement.preco.trim());
+
+    for (const complement of complementosValidos) {
+      if (!complement.nome) {
+        setSaving(false);
+        setErro("Todo complemento precisa de um nome.");
+        return;
+      }
+      if (complement.cobra) {
+        const valor = Number(complement.preco.replace(",", "."));
+        if (!Number.isFinite(valor) || valor < 0) {
+          setSaving(false);
+          setErro(`Informe o valor do acréscimo de "${complement.nome}".`);
+          return;
+        }
+      }
+    }
+
     const result = isEditing
-      ? await supabase.from("menu_items").update(payload).eq("id", item!.id)
-      : await supabase.from("menu_items").insert({ ...payload, tenant_id: tenant.id });
+      ? await supabase.from("menu_items").update(payload).eq("id", item!.id).select("id").single()
+      : await supabase
+          .from("menu_items")
+          .insert({ ...payload, tenant_id: tenant.id })
+          .select("id")
+          .single();
 
-    setSaving(false);
-
-    if (result.error) {
-      setErro(result.error.message);
+    if (result.error || !result.data) {
+      setSaving(false);
+      setErro(result.error?.message ?? "Erro ao salvar o item.");
       return;
     }
+
+    const menuItemId = result.data.id;
+    const { error: deleteIngredientsError } = await supabase
+      .from("menu_item_ingredients")
+      .delete()
+      .eq("menu_item_id", menuItemId)
+      .eq("tenant_id", tenant.id);
+    const { error: deleteComplementsError } = await supabase
+      .from("menu_item_complements")
+      .delete()
+      .eq("menu_item_id", menuItemId)
+      .eq("tenant_id", tenant.id);
+
+    if (deleteIngredientsError || deleteComplementsError) {
+      setSaving(false);
+      setErro(deleteIngredientsError?.message ?? deleteComplementsError?.message ?? "Erro ao atualizar a personalização.");
+      return;
+    }
+
+    if (ingredientesValidos.length > 0) {
+      const { error } = await supabase.from("menu_item_ingredients").insert(
+        ingredientesValidos.map((ingredient, index) => ({
+          tenant_id: tenant.id,
+          menu_item_id: menuItemId,
+          nome: ingredient.nome,
+          ordem: index,
+        }))
+      );
+      if (error) {
+        setSaving(false);
+        setErro(error.message);
+        return;
+      }
+    }
+
+    if (complementosValidos.length > 0) {
+      const { error } = await supabase.from("menu_item_complements").insert(
+        complementosValidos.map((complement, index) => ({
+          tenant_id: tenant.id,
+          menu_item_id: menuItemId,
+          nome: complement.nome,
+          cobra: complement.cobra,
+          preco: complement.cobra ? Number(complement.preco.replace(",", ".")) : null,
+          ordem: index,
+        }))
+      );
+      if (error) {
+        setSaving(false);
+        setErro(error.message);
+        return;
+      }
+    }
+
+    setSaving(false);
 
     router.push(`/${tenant.slug}/admin/itens`);
     router.refresh();
@@ -224,6 +340,128 @@ export function ItemForm({
         </div>
         <div className="mt-4">
           <Toggle checked={destaque} onChange={setDestaque} label="Destacar na página inicial" />
+        </div>
+      </Card>
+
+      <Card className="p-5">
+        <h2 className="mb-2 border-b border-neutral-200 pb-3 text-lg font-semibold text-black">
+          Personalização
+        </h2>
+        <p className="mb-4 text-sm text-neutral-500">
+          As duas listas são independentes. Uma lista vazia não aparece para o cliente. Retirar
+          ingrediente não muda o preço.
+        </p>
+        <Toggle
+          checked={personalizavel}
+          onChange={setPersonalizavel}
+          label="Produto personalizável"
+        />
+
+        <div className="mt-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-black">Ingredientes que o cliente pode retirar</h3>
+            <Button
+              type="button"
+              onClick={() =>
+                setIngredientes((prev) => [...prev, { key: crypto.randomUUID(), nome: "" }])
+              }
+            >
+              <IconPlus className="h-4 w-4" /> Ingrediente
+            </Button>
+          </div>
+          {ingredientes.map((ingredient) => (
+            <div key={ingredient.key} className="flex gap-2">
+              <Input
+                value={ingredient.nome}
+                placeholder="Ex: cebola"
+                onChange={(e) =>
+                  setIngredientes((prev) =>
+                    prev.map((row) =>
+                      row.key === ingredient.key ? { ...row, nome: e.target.value } : row
+                    )
+                  )
+                }
+              />
+              <Button
+                type="button"
+                variant="danger"
+                aria-label="Remover ingrediente"
+                onClick={() =>
+                  setIngredientes((prev) => prev.filter((row) => row.key !== ingredient.key))
+                }
+              >
+                <IconTrash className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-black">Complementos que o cliente pode incluir</h3>
+            <Button
+              type="button"
+              onClick={() =>
+                setComplementos((prev) => [
+                  ...prev,
+                  { key: crypto.randomUUID(), nome: "", cobra: false, preco: "" },
+                ])
+              }
+            >
+              <IconPlus className="h-4 w-4" /> Complemento
+            </Button>
+          </div>
+          {complementos.map((complement) => (
+            <div key={complement.key} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_8rem_auto]">
+              <Input
+                value={complement.nome}
+                placeholder="Ex: queijo"
+                onChange={(e) =>
+                  setComplementos((prev) =>
+                    prev.map((row) =>
+                      row.key === complement.key ? { ...row, nome: e.target.value } : row
+                    )
+                  )
+                }
+              />
+              <Toggle
+                checked={complement.cobra}
+                onChange={(cobra) =>
+                  setComplementos((prev) =>
+                    prev.map((row) =>
+                      row.key === complement.key
+                        ? { ...row, cobra, preco: cobra ? row.preco : "" }
+                        : row
+                    )
+                  )
+                }
+                label="Cobra acréscimo"
+              />
+              <Input
+                inputMode="decimal"
+                placeholder="0,00"
+                disabled={!complement.cobra}
+                value={complement.preco}
+                onChange={(e) =>
+                  setComplementos((prev) =>
+                    prev.map((row) =>
+                      row.key === complement.key ? { ...row, preco: e.target.value } : row
+                    )
+                  )
+                }
+              />
+              <Button
+                type="button"
+                variant="danger"
+                aria-label="Remover complemento"
+                onClick={() =>
+                  setComplementos((prev) => prev.filter((row) => row.key !== complement.key))
+                }
+              >
+                <IconTrash className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
         </div>
       </Card>
 

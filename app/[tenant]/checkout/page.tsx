@@ -6,6 +6,8 @@ import { useParams } from "next/navigation";
 import { PublicHeader } from "@/components/public/PublicHeader";
 import { Button, Card, EmptyState, Field, Input, Loading, Modal } from "@/components/ui";
 import { IconArrowLeft, IconCart, IconLock } from "@/components/icons";
+import { MontagemTexto } from "@/components/orders/MontagemTexto";
+import { cartUnitPrice } from "@/lib/customization";
 import { useCart } from "@/lib/cart-context";
 import { createClient } from "@/lib/supabase/client";
 import { formatBRL } from "@/lib/format";
@@ -26,6 +28,7 @@ interface PaymentModalState {
   orderId: string;
   pickupCode: string;
   paymentUrl: string;
+  total: number;
 }
 
 export default function CheckoutPage() {
@@ -84,6 +87,8 @@ export default function CheckoutPage() {
           items: cart.map((i) => ({
             menu_item_id: i.menuItem.id,
             quantidade: i.quantidade,
+            remover_ids: i.customization.removals.map((removal) => removal.id),
+            complemento_ids: i.customization.complements.map((complement) => complement.id),
           })),
           customer_name: customerName || undefined,
         }),
@@ -96,6 +101,7 @@ export default function CheckoutPage() {
         orderId: data.orderId,
         pickupCode: data.pickupCode,
         paymentUrl: data.paymentUrl,
+        total: Number(data.total),
       });
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Erro inesperado.");
@@ -226,15 +232,21 @@ export default function CheckoutPage() {
                 </h2>
                 <ul className="space-y-3">
                   {cart.map((item) => {
-                    const unit = item.menuItem.preco_promocional ?? item.menuItem.preco;
+                    const unit = cartUnitPrice(item);
                     return (
-                      <li key={item.menuItem.id} className="flex justify-between text-sm">
-                        <span className="text-neutral-700">
-                          {item.quantidade}x {item.menuItem.nome}
-                        </span>
-                        <span className="font-medium text-black">
-                          {formatBRL(unit * item.quantidade)}
-                        </span>
+                      <li key={item.lineId} className="text-sm">
+                        <div className="flex justify-between gap-3">
+                          <span className="text-neutral-700">
+                            {item.quantidade}x {item.menuItem.nome}
+                          </span>
+                          <span className="font-medium text-black">
+                            {formatBRL(unit * item.quantidade)}
+                          </span>
+                        </div>
+                        <MontagemTexto
+                          retirados={item.customization.removals.map((removal) => removal.nome)}
+                          complementos={item.customization.complements.map((complement) => complement.nome)}
+                        />
                       </li>
                     );
                   })}
@@ -291,6 +303,10 @@ export default function CheckoutPage() {
                 {paymentModal.pickupCode}
               </span>
               . Anote para acompanhar o pedido no botão &quot;Acompanhar pedido&quot; após o pagamento.
+            </p>
+            <p>
+              Valor a pagar:{" "}
+              <span className="font-bold text-black">{formatBRL(paymentModal.total)}</span>
             </p>
             <p className="rounded border border-brand-orange/40 bg-brand-orange/10 p-3 text-black">
               Depois de concluir o pagamento na InfinitePay, clique no botão para voltar

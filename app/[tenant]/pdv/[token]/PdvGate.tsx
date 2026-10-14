@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Button, Card, EmptyState, Field, Input } from "@/components/ui";
 import { IconAlert, IconLock, IconPOS } from "@/components/icons";
 import { PdvSaleForm } from "@/components/pdv/PdvSaleForm";
+import type { MenuCustomizations } from "@/lib/queries";
 import type { MenuItem } from "@/lib/types";
 
 export function PdvGate({
@@ -12,12 +13,14 @@ export function PdvGate({
   label,
   ativo,
   items,
+  customizations,
 }: {
   tenant: string;
   token: string;
   label: string;
   ativo: boolean;
   items: MenuItem[];
+  customizations: MenuCustomizations;
 }) {
   const [password, setPassword] = useState("");
   const [unlockedPassword, setUnlockedPassword] = useState<string | null>(null);
@@ -69,6 +72,7 @@ export function PdvGate({
           <PdvSaleForm
             tenant={tenant}
             items={items}
+            customizations={customizations}
             pdvToken={token}
             pdvPassword={unlockedPassword}
           />
