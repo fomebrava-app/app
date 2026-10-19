@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Button, Card, Input } from "@/components/ui";
-import type { PlatformUser, SignupCodeInventory } from "@/lib/platform-types";
+import { formatCep } from "@/lib/viacep";
+import type { LandingAccessInbox, PlatformUser, SignupCodeInventory } from "@/lib/platform-types";
 
 const ROLE_LABEL: Record<string, string> = {
   admin: "Administrador",
@@ -12,9 +13,11 @@ const ROLE_LABEL: Record<string, string> = {
 export function PlatformPanel({
   users,
   codes,
+  requests,
 }: {
   users: PlatformUser[];
   codes: SignupCodeInventory;
+  requests: LandingAccessInbox;
 }) {
   const [rows, setRows] = useState(users);
   const [inventory, setInventory] = useState(codes);
@@ -84,6 +87,46 @@ export function PlatformPanel({
         )}
         {codeError && <p className="mt-3 text-sm text-red-600">{codeError}</p>}
       </Card>
+
+      <section>
+        <h2 className="text-xl font-semibold">Respostas recebidas</h2>
+        <p className="mt-1 text-sm text-neutral-500">
+          Solicitações enviadas pelo formulário da página inicial.
+        </p>
+        <div className="mt-4 space-y-3">
+          {!requests.ready && (
+            <Card className="p-5 text-sm text-neutral-700">
+              A tabela de solicitações ainda não existe. Rode a migration 0016 no Supabase.
+            </Card>
+          )}
+          {requests.ready && requests.requests.length === 0 && (
+            <Card className="p-5 text-sm text-neutral-500">
+              Ainda não chegou nenhuma solicitação.
+            </Card>
+          )}
+          {requests.requests.map((request) => (
+            <Card key={request.id} className="p-4">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+                <p className="font-medium">{request.nome}</p>
+                <p className="text-xs text-neutral-500">
+                  {new Date(request.createdAt).toLocaleString("pt-BR", {
+                    dateStyle: "short",
+                    timeStyle: "short",
+                    timeZone: "America/Sao_Paulo",
+                  })}
+                </p>
+              </div>
+              <p className="mt-1 text-sm text-neutral-700">
+                {request.clube} · {request.cargo}
+              </p>
+              <p className="mt-1 text-sm text-neutral-600">
+                {request.email} · {request.whatsapp}
+              </p>
+              <p className="mt-1 text-xs text-neutral-500">CEP {formatCep(request.cep)}</p>
+            </Card>
+          ))}
+        </div>
+      </section>
 
       <section>
         <h2 className="text-xl font-semibold">Usuários cadastrados</h2>

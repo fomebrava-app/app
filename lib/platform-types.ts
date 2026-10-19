@@ -15,3 +15,19 @@ export type SignupCodeInventory = {
   available: number;
   used: number;
 };
+
+export type LandingAccessRequest = {
+  id: string;
+  nome: string;
+  clube: string;
+  cargo: string;
+  cep: string;
+  email: string;
+  whatsapp: string;
+  createdAt: string;
+};
+
+export type LandingAccessInbox = {
+  ready: boolean;
+  requests: LandingAccessRequest[];
+};

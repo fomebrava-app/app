@@ -12,7 +12,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { IconArrowLeft } from "@/components/icons";
 import { createClient } from "@/lib/supabase/server";
-import { isPlatformAdmin, listPlatformUsers, signupCodeInventory } from "@/lib/platform-admin";
+import {
+  isPlatformAdmin,
+  listLandingAccessRequests,
+  listPlatformUsers,
+  signupCodeInventory,
+} from "@/lib/platform-admin";
 import { PlatformPanel } from "@/components/admin/PlatformPanel";
 import { PlatformLogout } from "@/components/admin/PlatformLogout";
 import { getUserTenantSlug } from "@/lib/user-tenant";
@@ -46,9 +51,10 @@ export default async function PlataformaPage() {
     );
   }
 
-  const [users, codes, tenant] = await Promise.all([
+  const [users, codes, requests, tenant] = await Promise.all([
     listPlatformUsers(),
     signupCodeInventory(),
+    listLandingAccessRequests(),
     getUserTenantSlug(supabase, user.id),
   ]);
 
@@ -78,7 +84,7 @@ export default async function PlataformaPage() {
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-8">
-        <PlatformPanel users={users} codes={codes} />
+        <PlatformPanel users={users} codes={codes} requests={requests} />
       </main>
     </div>
   );

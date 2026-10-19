@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { PlatformUser, SignupCodeInventory } from "@/lib/platform-types";
+import type { LandingAccessInbox, PlatformUser, SignupCodeInventory } from "@/lib/platform-types";
 
-export type { PlatformUser, SignupCodeInventory };
+export type { LandingAccessInbox, PlatformUser, SignupCodeInventory };
 
 export function isPlatformAdmin(email: string | null | undefined): boolean {
   if (!email) return false;
@@ -101,4 +101,34 @@ export async function signupCodeInventory(): Promise<SignupCodeInventory> {
   if (usedError) throw usedError;
 
   return { ready: true, available: available ?? 0, used: used ?? 0 };
+}
+
+function missingLandingTable(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return error.code === "PGRST205" || (error.message ?? "").includes("landing_access_requests");
+}
+
+export async function listLandingAccessRequests(): Promise<LandingAccessInbox> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("landing_access_requests")
+    .select("id, nome, clube, cargo, cep, email, whatsapp, created_at")
+    .order("created_at", { ascending: false });
+
+  if (missingLandingTable(error)) return { ready: false, requests: [] };
+  if (error) throw error;
+
+  return {
+    ready: true,
+    requests: (data ?? []).map((row) => ({
+      id: row.id,
+      nome: row.nome,
+      clube: row.clube,
+      cargo: row.cargo,
+      cep: row.cep,
+      email: row.email,
+      whatsapp: row.whatsapp,
+      createdAt: row.created_at,
+    })),
+  };
 }
