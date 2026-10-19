@@ -25,6 +25,7 @@ export type LandingAccessRequest = {
   email: string;
   whatsapp: string;
   createdAt: string;
+  registeredAt: string | null;
 };
 
 export type LandingAccessInbox = {

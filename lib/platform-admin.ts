@@ -108,12 +108,27 @@ function missingLandingTable(error: { code?: string; message?: string } | null):
   return error.code === "PGRST205" || (error.message ?? "").includes("landing_access_requests");
 }
 
+function missingRegisteredColumn(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return error.code === "PGRST204" || (error.message ?? "").includes("registered_at");
+}
+
 export async function listLandingAccessRequests(): Promise<LandingAccessInbox> {
   const admin = createAdminClient();
-  const { data, error } = await admin
+  const columns = "id, nome, clube, cargo, cep, email, whatsapp, created_at, registered_at";
+  let { data, error } = await admin
     .from("landing_access_requests")
-    .select("id, nome, clube, cargo, cep, email, whatsapp, created_at")
+    .select(columns)
     .order("created_at", { ascending: false });
+
+  if (missingRegisteredColumn(error)) {
+    const fallback = await admin
+      .from("landing_access_requests")
+      .select("id, nome, clube, cargo, cep, email, whatsapp, created_at")
+      .order("created_at", { ascending: false });
+    data = (fallback.data ?? []).map((row) => ({ ...row, registered_at: null }));
+    error = fallback.error;
+  }
 
   if (missingLandingTable(error)) return { ready: false, requests: [] };
   if (error) throw error;
@@ -129,6 +144,7 @@ export async function listLandingAccessRequests(): Promise<LandingAccessInbox> {
       email: row.email,
       whatsapp: row.whatsapp,
       createdAt: row.created_at,
+      registeredAt: row.registered_at,
     })),
   };
 }

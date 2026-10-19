@@ -1,5 +1,5 @@
 /**
- * Acesso administrativo: entrar na loja, criar conta ou pedir nova senha.
+ * Acesso administrativo: entrar na loja ou pedir nova senha.
  *
  * Com loja no perfil, o destino é `/{slug}/admin`. Sem loja, `/plataforma`
  * só abre se o servidor confirmar o admin geral. O brain não descreve esse
@@ -16,11 +16,10 @@ import { IconAlert } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { getUserTenantSlug } from "@/lib/user-tenant";
 import { clearAuthNext } from "@/lib/auth-next";
-import { SignupForm } from "@/components/admin/SignupForm";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
+  const [mode, setMode] = useState<"login" | "forgot">("login");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [loading, setLoading] = useState(false);
@@ -218,31 +217,20 @@ export default function LoginPage() {
                 </Button>
               </form>
             </>
-          ) : (
-            <>
-              <h1 className="text-xl font-semibold text-black">Criar conta</h1>
-              <p className="mt-1 text-sm text-neutral-500">
-                Cadastre-se para administrar o cardápio deste evento. É
-                preciso o código de acesso fornecido pelo organizador.
-              </p>
-              <SignupForm />
-            </>
-          )}
+          ) : null}
 
-          <button
-            onClick={() => {
-              setError("");
-              setResetSent(false);
-              setMode(mode === "login" ? "signup" : "login");
-            }}
-            className="mx-auto mt-5 block text-center text-sm text-neutral-500 underline underline-offset-2 hover:text-black"
-          >
-            {mode === "signup"
-              ? "Já tem conta? Entrar"
-              : mode === "forgot"
-                ? "Voltar ao login"
-                : "Não tem conta? Cadastre-se"}
-          </button>
+          {mode === "forgot" && (
+            <button
+              onClick={() => {
+                setError("");
+                setResetSent(false);
+                setMode("login");
+              }}
+              className="mx-auto mt-5 block text-center text-sm text-neutral-500 underline underline-offset-2 hover:text-black"
+            >
+              Voltar ao login
+            </button>
+          )}
         </Card>
       </div>
     </div>

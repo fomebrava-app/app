@@ -9,19 +9,14 @@
  */
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
-import {
-  isPlatformAdmin,
-  listLandingAccessRequests,
-  listPlatformUsers,
-  signupCodeInventory,
-} from "@/lib/platform-admin";
+import { isPlatformAdmin, listLandingAccessRequests, listPlatformUsers } from "@/lib/platform-admin";
 import { PlatformPanel } from "@/components/admin/PlatformPanel";
 import { PlatformLogin } from "@/components/admin/PlatformLogin";
 import { PlatformLogout } from "@/components/admin/PlatformLogout";
 
 /**
  * Renderiza o login, a recusa ou o painel geral.
- * Efeito: lista usuários e códigos no servidor; não grava tenant.
+ * Efeito: lista usuários e respostas no servidor; não grava tenant.
  * A decisão de acesso não fica no botão do menu
  * (brain-fomebrava/05 - Seguranca/Modelo de Segurança.md).
  */
@@ -46,9 +41,8 @@ export default async function PlataformaPage() {
     );
   }
 
-  const [users, codes, requests] = await Promise.all([
+  const [users, requests] = await Promise.all([
     listPlatformUsers(),
-    signupCodeInventory(),
     listLandingAccessRequests(),
   ]);
 
@@ -67,7 +61,7 @@ export default async function PlataformaPage() {
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-8">
-        <PlatformPanel users={users} codes={codes} requests={requests} />
+        <PlatformPanel users={users} requests={requests} />
       </main>
     </div>
   );

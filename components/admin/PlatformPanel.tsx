@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Button, Card, Input } from "@/components/ui";
 import { formatCep } from "@/lib/viacep";
-import type { LandingAccessInbox, PlatformUser, SignupCodeInventory } from "@/lib/platform-types";
+import { isValidTenantSlug, normalizeTenantSlug, normalizeTenantSlugInput } from "@/lib/tenant-slug";
+import type { LandingAccessInbox, LandingAccessRequest, PlatformUser } from "@/lib/platform-types";
 
 const ROLE_LABEL: Record<string, string> = {
   admin: "Administrador",
@@ -12,82 +13,20 @@ const ROLE_LABEL: Record<string, string> = {
 
 export function PlatformPanel({
   users,
-  codes,
   requests,
 }: {
   users: PlatformUser[];
-  codes: SignupCodeInventory;
   requests: LandingAccessInbox;
 }) {
   const [rows, setRows] = useState(users);
-  const [inventory, setInventory] = useState(codes);
-  const [freshCode, setFreshCode] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [codeError, setCodeError] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [received, setReceived] = useState(requests.requests);
 
-  async function generateCode() {
-    setGenerating(true);
-    setCodeError("");
-    setCopied(false);
-    try {
-      const res = await fetch("/api/platform/signup-codes", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Não foi possível gerar o código.");
-      setFreshCode(data.code);
-      setInventory((current) => ({ ...current, ready: true, available: current.available + 1 }));
-    } catch (err) {
-      setFreshCode("");
-      setCodeError(err instanceof Error ? err.message : "Não foi possível gerar o código.");
-    } finally {
-      setGenerating(false);
-    }
-  }
-
-  async function copyCode() {
-    await navigator.clipboard.writeText(freshCode);
-    setCopied(true);
+  function replaceRequest(next: LandingAccessRequest) {
+    setReceived((current) => current.map((item) => (item.id === next.id ? next : item)));
   }
 
   return (
     <div className="space-y-8">
-      <Card className="p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-xl font-semibold">Códigos de acesso</h1>
-            <p className="mt-1 text-sm text-neutral-500">
-              Cada código libera um cadastro de organizador e só pode ser usado uma vez.
-            </p>
-          </div>
-          <Button type="button" variant="primary" onClick={generateCode} disabled={generating || !inventory.ready}>
-            {generating ? "Gerando..." : "Gerar código"}
-          </Button>
-        </div>
-
-        {!inventory.ready ? (
-          <p className="mt-4 text-sm text-neutral-700">
-            A tabela de códigos ainda não existe. Rode a migration 0012 no Supabase antes de gerar códigos por aqui.
-          </p>
-        ) : (
-          <p className="mt-4 text-sm text-neutral-600">
-            {inventory.available} disponíveis, {inventory.used} já usados.
-          </p>
-        )}
-
-        {freshCode && (
-          <div className="mt-4 flex flex-col gap-3 rounded border border-neutral-200 bg-neutral-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="font-mono text-lg tracking-wide">{freshCode}</p>
-              <p className="mt-1 text-xs text-neutral-500">Copie agora. Este código não aparece de novo.</p>
-            </div>
-            <Button type="button" variant="secondary" size="sm" onClick={copyCode}>
-              {copied ? "Copiado" : "Copiar"}
-            </Button>
-          </div>
-        )}
-        {codeError && <p className="mt-3 text-sm text-red-600">{codeError}</p>}
-      </Card>
-
       <section>
         <h2 className="text-xl font-semibold">Respostas recebidas</h2>
         <p className="mt-1 text-sm text-neutral-500">
@@ -99,31 +38,18 @@ export function PlatformPanel({
               A tabela de solicitações ainda não existe. Rode a migration 0016 no Supabase.
             </Card>
           )}
-          {requests.ready && requests.requests.length === 0 && (
+          {requests.ready && received.length === 0 && (
             <Card className="p-5 text-sm text-neutral-500">
               Ainda não chegou nenhuma solicitação.
             </Card>
           )}
-          {requests.requests.map((request) => (
-            <Card key={request.id} className="p-4">
-              <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
-                <p className="font-medium">{request.nome}</p>
-                <p className="text-xs text-neutral-500">
-                  {new Date(request.createdAt).toLocaleString("pt-BR", {
-                    dateStyle: "short",
-                    timeStyle: "short",
-                    timeZone: "America/Sao_Paulo",
-                  })}
-                </p>
-              </div>
-              <p className="mt-1 text-sm text-neutral-700">
-                {request.clube} · {request.cargo}
-              </p>
-              <p className="mt-1 text-sm text-neutral-600">
-                {request.email} · {request.whatsapp}
-              </p>
-              <p className="mt-1 text-xs text-neutral-500">CEP {formatCep(request.cep)}</p>
-            </Card>
+          {received.map((request) => (
+            <RequestCard
+              key={request.id}
+              request={request}
+              onChange={replaceRequest}
+              onRegistered={(user) => setRows((current) => [user, ...current])}
+            />
           ))}
         </div>
       </section>
@@ -152,6 +78,157 @@ export function PlatformPanel({
         </div>
       </section>
     </div>
+  );
+}
+
+function RequestCard({
+  request,
+  onChange,
+  onRegistered,
+}: {
+  request: LandingAccessRequest;
+  onChange: (next: LandingAccessRequest) => void;
+  onRegistered: (user: PlatformUser) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [email, setEmail] = useState(request.email);
+  const [alias, setAlias] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [error, setError] = useState("");
+  const [password, setPassword] = useState("");
+  const [copied, setCopied] = useState(false);
+  const slug = normalizeTenantSlug(alias);
+  const registered = Boolean(request.registeredAt);
+
+  async function saveEmail() {
+    setSavingEmail(true);
+    setError("");
+    try {
+      const res = await fetch("/api/platform/access-requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: request.id, email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Não foi possível salvar o e-mail.");
+      onChange({ ...request, email: data.email });
+      setEmail(data.email);
+      setEditing(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível salvar o e-mail.");
+    } finally {
+      setSavingEmail(false);
+    }
+  }
+
+  async function registerStore() {
+    setRegistering(true);
+    setError("");
+    try {
+      const res = await fetch("/api/platform/access-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: request.id, alias: slug }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Não foi possível cadastrar a loja.");
+      setPassword(data.password);
+      onChange({ ...request, registeredAt: data.registeredAt });
+      onRegistered(data.user);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível cadastrar a loja.");
+    } finally {
+      setRegistering(false);
+    }
+  }
+
+  async function copyPassword() {
+    await navigator.clipboard.writeText(password);
+    setCopied(true);
+  }
+
+  return (
+    <Card className="p-4">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+        <p className="font-medium">{request.nome}</p>
+        <p className="text-xs text-neutral-500">
+          {new Date(request.createdAt).toLocaleString("pt-BR", {
+            dateStyle: "short",
+            timeStyle: "short",
+            timeZone: "America/Sao_Paulo",
+          })}
+        </p>
+      </div>
+      <p className="mt-1 text-sm text-neutral-700">
+        {request.clube} · {request.cargo}
+      </p>
+      <p className="mt-1 text-sm text-neutral-600">{request.whatsapp}</p>
+      <p className="mt-1 text-xs text-neutral-500">CEP {formatCep(request.cep)}</p>
+
+      <div className="mt-4 space-y-3">
+        {editing ? (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              aria-label="E-mail"
+            />
+            <Button type="button" variant="secondary" size="sm" onClick={saveEmail} disabled={savingEmail}>
+              {savingEmail ? "Salvando" : "Salvar"}
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm text-neutral-700">{request.email}</p>
+            {!registered && (
+              <Button type="button" variant="secondary" size="sm" onClick={() => setEditing(true)}>
+                Editar e-mail
+              </Button>
+            )}
+          </div>
+        )}
+
+        {registered ? (
+          <p className="text-sm font-medium text-black">Loja cadastrada.</p>
+        ) : (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <label className="block flex-1 text-xs text-neutral-500">
+              Alias da loja
+              <Input
+                className="mt-1"
+                value={alias}
+                placeholder="nome-do-clube"
+                onChange={(event) => setAlias(normalizeTenantSlugInput(event.target.value))}
+              />
+            </label>
+            <Button
+              type="button"
+              variant="primary"
+              disabled={registering || !isValidTenantSlug(slug)}
+              onClick={registerStore}
+            >
+              {registering ? "Cadastrando..." : "Cadastrar"}
+            </Button>
+          </div>
+        )}
+
+        {password && (
+          <div className="flex flex-col gap-3 rounded border border-neutral-200 bg-neutral-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs text-neutral-500">Senha provisória</p>
+              <p className="font-mono text-lg tracking-wide">{password}</p>
+              <p className="mt-1 text-xs text-neutral-500">Copie agora. Esta senha não aparece de novo.</p>
+            </div>
+            <Button type="button" variant="secondary" size="sm" onClick={copyPassword}>
+              {copied ? "Copiado" : "Copiar"}
+            </Button>
+          </div>
+        )}
+        {error && <p className="text-sm text-red-600">{error}</p>}
+      </div>
+    </Card>
   );
 }
 

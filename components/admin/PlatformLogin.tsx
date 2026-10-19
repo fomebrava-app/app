@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button, Card, Field, Input } from "@/components/ui";
@@ -17,25 +17,6 @@ export function PlatformLogin() {
   const [error, setError] = useState("");
   const [resetSent, setResetSent] = useState(false);
 
-  useEffect(() => {
-    const supabase = createClient();
-    let active = true;
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!active || !data.session) return;
-      const platform = await fetch("/api/platform/me");
-      if (!active) return;
-      if (!platform.ok) {
-        await supabase.auth.signOut();
-        setError("Esta conta não administra o painel do sistema.");
-        return;
-      }
-      router.refresh();
-    });
-    return () => {
-      active = false;
-    };
-  }, [router]);
-
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError("");
@@ -46,6 +27,7 @@ export function PlatformLogin() {
 
     setLoading(true);
     const supabase = createClient();
+    await supabase.auth.signOut({ scope: "local" });
     const { error: authError } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password: senha,
@@ -57,10 +39,16 @@ export function PlatformLogin() {
     }
 
     const platform = await fetch("/api/platform/me");
-    if (!platform.ok) {
-      await supabase.auth.signOut();
+    const body = (await platform.json().catch(() => ({}))) as { reason?: string };
+    if (body.reason === "not_admin") {
+      await supabase.auth.signOut({ scope: "local" });
       setLoading(false);
       setError("Esta conta não administra o painel do sistema.");
+      return;
+    }
+    if (!platform.ok) {
+      setLoading(false);
+      setError("Não foi possível confirmar o acesso. Tente entrar de novo.");
       return;
     }
 
