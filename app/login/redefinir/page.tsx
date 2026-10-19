@@ -7,6 +7,7 @@ import { Button, Card, Field, Input } from "@/components/ui";
 import { IconAlert, IconCheck } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { getUserTenantSlug } from "@/lib/user-tenant";
+import { clearAuthNext, isPlatformPasswordReset } from "@/lib/auth-next";
 import { PASSWORD_RULES, isPasswordStrong } from "@/lib/password";
 import { cn } from "@/lib/cn";
 
@@ -96,6 +97,25 @@ export default function RedefinirSenhaPage() {
     if (updateError || !data.user) {
       setLoading(false);
       setError("Não foi possível salvar a nova senha. Peça um novo link.");
+      return;
+    }
+
+    const returnToPlatform =
+      new URLSearchParams(window.location.search).get("next") === "/plataforma" ||
+      isPlatformPasswordReset();
+    clearAuthNext();
+
+    if (returnToPlatform) {
+      const platform = await fetch("/api/platform/me");
+      setLoading(false);
+      if (platform.ok) {
+        router.push("/plataforma");
+        router.refresh();
+        return;
+      }
+      await supabase.auth.signOut();
+      setError("Senha atualizada. Esta conta não administra o painel do sistema.");
+      setReady(false);
       return;
     }
 

@@ -15,6 +15,7 @@ import { Button, Card, Field, Input } from "@/components/ui";
 import { IconAlert } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { getUserTenantSlug } from "@/lib/user-tenant";
+import { clearAuthNext } from "@/lib/auth-next";
 import { SignupForm } from "@/components/admin/SignupForm";
 
 export default function LoginPage() {
@@ -97,6 +98,7 @@ export default function LoginPage() {
     }
 
     setLoading(true);
+    clearAuthNext();
     const supabase = createClient();
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: `${window.location.origin}/login/redefinir`,
