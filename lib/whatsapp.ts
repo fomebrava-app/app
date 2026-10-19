@@ -19,3 +19,30 @@ export function buildOrderTrackingMessage(params: {
 }): string {
   return `Olá! Aqui está o link para acompanhar seu pedido: ${params.trackingUrl} — Senha: ${params.pickupCode}`;
 }
+
+export function buildBuyerSaveMessage(params: {
+  lines: string[];
+  totalLabel: string;
+  pickupCode: string;
+  trackingUrl: string;
+  pixChave?: string | null;
+}): string {
+  const parts = ["Resumo", ...params.lines, `Total: ${params.totalLabel}`, "", `Senha: ${params.pickupCode}`];
+  if (params.pixChave) parts.push("", `Pix: ${params.pixChave}`);
+  parts.push("", `Acompanhe: ${params.trackingUrl}`);
+  return parts.join("\n");
+}
+
+export function buildChargeMessage(params: {
+  pickupCode: string;
+  trackingUrl: string;
+  totalLabel: string;
+  pixChave?: string | null;
+  paymentUrl?: string | null;
+}): string {
+  const lines = [`Olá! Pedido ${params.pickupCode}. Valor: ${params.totalLabel}.`];
+  if (params.pixChave) lines.push(`Pix: ${params.pixChave}`);
+  if (params.paymentUrl) lines.push(`Link para pagamento: ${params.paymentUrl}`);
+  lines.push(`Acompanhe: ${params.trackingUrl}`);
+  return lines.join("\n");
+}

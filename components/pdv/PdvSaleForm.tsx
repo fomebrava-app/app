@@ -8,7 +8,7 @@ import { IconPOS, IconTrash, IconWhatsapp, IconCopy } from "@/components/icons";
 import { EMPTY_CUSTOMIZATION, lineIdFor, menuUnitPrice } from "@/lib/customization";
 import { formatBRL } from "@/lib/format";
 import type { MenuCustomizations } from "@/lib/queries";
-import { buildOrderTrackingMessage, buildWhatsAppLink } from "@/lib/whatsapp";
+import { buildChargeMessage, buildOrderTrackingMessage, buildWhatsAppLink } from "@/lib/whatsapp";
 import type { CartCustomization, MenuItem } from "@/lib/types";
 
 interface PdvCartItem {
@@ -23,6 +23,7 @@ type PaymentMethod = "dinheiro" | "pix_presencial";
 interface Confirmation {
   pickupCode: string;
   trackingUrl: string;
+  total: number;
 }
 
 function unitPrice(item: MenuItem, customization: CartCustomization = EMPTY_CUSTOMIZATION) {
@@ -42,12 +43,14 @@ export function PdvSaleForm({
   customizations,
   pdvToken,
   pdvPassword,
+  pixChave = null,
 }: {
   tenant: string;
   items: MenuItem[];
   customizations: MenuCustomizations;
   pdvToken: string;
   pdvPassword: string;
+  pixChave?: string | null;
 }) {
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<PdvCartItem[]>([]);
@@ -140,7 +143,7 @@ export function PdvSaleForm({
       if (!res.ok) throw new Error(data.error ?? "Erro ao registrar pedido.");
 
       const trackingUrl = `${window.location.origin}/${tenant}/pedido/${data.pickupCode}`;
-      setConfirmation({ pickupCode: data.pickupCode, trackingUrl });
+      setConfirmation({ pickupCode: data.pickupCode, trackingUrl, total });
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Erro inesperado.");
     } finally {
@@ -158,10 +161,17 @@ export function PdvSaleForm({
   if (confirmation) {
     const whatsappLink = buildWhatsAppLink({
       phone: customerPhone,
-      message: buildOrderTrackingMessage({
-        pickupCode: confirmation.pickupCode,
-        trackingUrl: confirmation.trackingUrl,
-      }),
+      message: pixChave
+        ? buildChargeMessage({
+            pickupCode: confirmation.pickupCode,
+            trackingUrl: confirmation.trackingUrl,
+            totalLabel: formatBRL(confirmation.total),
+            pixChave,
+          })
+        : buildOrderTrackingMessage({
+            pickupCode: confirmation.pickupCode,
+            trackingUrl: confirmation.trackingUrl,
+          }),
     });
 
     return (
@@ -176,7 +186,8 @@ export function PdvSaleForm({
         <div className="mt-6 flex flex-col gap-2">
           <a href={whatsappLink} target="_blank" rel="noopener noreferrer">
             <Button variant="primary" className="w-full">
-              <IconWhatsapp className="h-4 w-4" /> Enviar link por WhatsApp
+              <IconWhatsapp className="h-4 w-4" />{" "}
+              {pixChave ? "Enviar cobrança por WhatsApp" : "Enviar link por WhatsApp"}
             </Button>
           </a>
           <Button onClick={copyLink} className="w-full">

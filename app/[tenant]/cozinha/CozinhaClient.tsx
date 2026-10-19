@@ -117,6 +117,9 @@ export function CozinhaClient({ tenant }: { tenant: string }) {
                       {order.customer_name}
                     </p>
                   )}
+                  {order.fulfillment === "entrega" && (
+                    <p className="mt-1 text-xs font-medium text-neutral-300">Entrega</p>
+                  )}
                   <ul className="mt-3 space-y-1 border-t border-neutral-800 pt-3 text-sm">
                     {order.items.map((item, idx) => (
                       <li key={idx}>

@@ -61,17 +61,45 @@ export type OrderChannel = "online" | "pdv";
 
 export type OrderStatus =
   | "aguardando_pagamento"
+  | "reservado"
   | "recebido"
   | "fazendo"
   | "pronto"
   | "entregue"
   | "cancelado";
 
+export type OrderFulfillment = "retirada" | "entrega";
+
 export type PaymentMethod =
   | "infinitepay_credito"
   | "infinitepay_pix"
   | "dinheiro"
-  | "pix_presencial";
+  | "pix_presencial"
+  | "pix";
+
+export type CampaignStatus = "aberta" | "encerrada";
+
+export type CampaignRecebimento = "infinitepay" | "pix";
+
+export interface Campaign {
+  id: string;
+  tenant_id: string;
+  nome: string;
+  status: CampaignStatus;
+  recebimento: CampaignRecebimento;
+  pix_chave: string | null;
+  reserva_antes_pagamento: boolean;
+  usa_cozinha: boolean;
+  opened_at: string;
+  closed_at: string | null;
+}
+
+export interface OrderContact {
+  order_id: string;
+  tenant_id: string;
+  customer_phone: string | null;
+  endereco: string | null;
+}
 
 export type PaymentStatus = "pendente" | "pago" | "falhou";
 
@@ -84,6 +112,8 @@ export interface Order {
   payment_method: PaymentMethod | null;
   payment_status: PaymentStatus;
   customer_name: string | null;
+  campaign_id: string;
+  fulfillment: OrderFulfillment;
   subtotal: number;
   total: number;
   infinitepay_transaction_nsu: string | null;
@@ -149,6 +179,7 @@ export interface FinanceLedgerEntry {
   data: string;
   referencia_id: string;
   tenant_id: string;
+  campaign_id: string;
 }
 
 export interface EventSettings {
@@ -201,6 +232,7 @@ export interface CartItem {
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   aguardando_pagamento: "Aguardando pagamento",
+  reservado: "Reservado",
   recebido: "Recebido",
   fazendo: "Fazendo",
   pronto: "Pronto",

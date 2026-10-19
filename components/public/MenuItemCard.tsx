@@ -8,7 +8,13 @@ import { useCart } from "@/lib/cart-context";
 import { formatBRL } from "@/lib/format";
 import type { MenuItem } from "@/lib/types";
 
-export function MenuItemCard({ item }: { item: MenuItem }) {
+export function MenuItemCard({
+  item,
+  orderingOpen = true,
+}: {
+  item: MenuItem;
+  orderingOpen?: boolean;
+}) {
   const { cart, addToCart, updateQuantity } = useCart();
   const { tenant } = useParams<{ tenant: string }>();
   const hasPromo = !!item.preco_promocional;
@@ -108,7 +114,7 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
           </Link>
           {item.personalizavel ? (
             <Link href={`/${tenant}/item/${item.id}`} className="flex-1">
-              <Button variant="primary" className="w-full" disabled={esgotado}>
+              <Button variant="primary" className="w-full" disabled={esgotado || !orderingOpen}>
                 {qtyInCart > 0 ? `Personalizar (${qtyInCart})` : "Personalizar"}
               </Button>
             </Link>
@@ -116,7 +122,7 @@ export function MenuItemCard({ item }: { item: MenuItem }) {
             <Button
               variant="primary"
               className="flex-1"
-              disabled={esgotado}
+              disabled={esgotado || !orderingOpen}
               onClick={() => addToCart(item, 1)}
             >
               {qtyInCart > 0 ? `Adicionar (${qtyInCart})` : "Adicionar"}

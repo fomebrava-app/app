@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { PublicHeader } from "@/components/public/PublicHeader";
@@ -11,6 +11,15 @@ import { cartUnitPrice } from "@/lib/customization";
 import { useCart } from "@/lib/cart-context";
 import { createClient } from "@/lib/supabase/client";
 import { formatBRL } from "@/lib/format";
+import { buildBuyerSaveMessage, buildWhatsAppLink } from "@/lib/whatsapp";
+import {
+  formatCep,
+  formatDeliveryAddress,
+  lookupCep,
+  onlyCepDigits,
+  type ViaCepAddress,
+} from "@/lib/viacep";
+import type { CampaignRecebimento, OrderFulfillment } from "@/lib/types";
 
 function clearPendingOrderStorage() {
   sessionStorage.removeItem("pendingOrderId");
@@ -24,6 +33,12 @@ interface PendingOrder {
   paymentUrl: string | null;
 }
 
+interface OpenCampaign {
+  recebimento: CampaignRecebimento;
+  pix_chave: string | null;
+  reserva_antes_pagamento: boolean;
+}
+
 interface PaymentModalState {
   orderId: string;
   pickupCode: string;
@@ -31,13 +46,34 @@ interface PaymentModalState {
   total: number;
 }
 
+interface ChargeModalState {
+  pickupCode: string;
+  total: number;
+  mode: "pix" | "reserva";
+  recebimento: CampaignRecebimento;
+  pixChave: string | null;
+  resumo: string[];
+}
+
 export default function CheckoutPage() {
-  const { cart, cartTotal } = useCart();
+  const { cart, cartTotal, clearCart } = useCart();
   const { tenant } = useParams<{ tenant: string }>();
   const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [fulfillment, setFulfillment] = useState<OrderFulfillment>("retirada");
+  const [cep, setCep] = useState("");
+  const [cepLoading, setCepLoading] = useState(false);
+  const [cepErro, setCepErro] = useState("");
+  const [enderecoEncontrado, setEnderecoEncontrado] = useState<ViaCepAddress | null>(null);
+  const [logradouro, setLogradouro] = useState("");
+  const [numero, setNumero] = useState("");
+  const [complemento, setComplemento] = useState("");
+  const cepRequest = useRef("");
+  const [campaign, setCampaign] = useState<OpenCampaign | null | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
   const [paymentModal, setPaymentModal] = useState<PaymentModalState | null>(null);
+  const [chargeModal, setChargeModal] = useState<ChargeModalState | null>(null);
 
   const [checkingPending, setCheckingPending] = useState(true);
   const [pendingOrder, setPendingOrder] = useState<PendingOrder | null>(null);
@@ -69,12 +105,72 @@ export default function CheckoutPage() {
       });
   }, [tenant]);
 
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from("tenants")
+      .select("id")
+      .eq("slug", tenant)
+      .maybeSingle()
+      .then(async ({ data: store, error }) => {
+        if (error || !store) {
+          setCampaign(null);
+          return;
+        }
+        const { data, error: campaignError } = await supabase
+          .from("campaigns")
+          .select("recebimento, pix_chave, reserva_antes_pagamento")
+          .eq("tenant_id", store.id)
+          .eq("status", "aberta")
+          .maybeSingle();
+        if (campaignError) {
+          setErro("Não foi possível ler a campanha aberta.");
+          setCampaign(null);
+          return;
+        }
+        setCampaign(data);
+      });
+  }, [tenant]);
+
   function dismissPendingOrder() {
     clearPendingOrderStorage();
     setPendingOrder(null);
   }
 
+  async function buscarCep(digits: string) {
+    cepRequest.current = digits;
+    setCepLoading(true);
+    setCepErro("");
+    try {
+      const found = await lookupCep(digits);
+      if (cepRequest.current !== digits) return;
+      setEnderecoEncontrado(found);
+      setLogradouro(found.logradouro);
+    } catch (err) {
+      if (cepRequest.current !== digits) return;
+      setEnderecoEncontrado(null);
+      setLogradouro("");
+      setCepErro(err instanceof Error ? err.message : "Não foi possível consultar o CEP.");
+    } finally {
+      if (cepRequest.current === digits) setCepLoading(false);
+    }
+  }
+
   async function handleContinue() {
+    if (campaign?.reserva_antes_pagamento && !customerPhone.trim()) {
+      setErro("Informe o telefone para a reserva.");
+      return;
+    }
+    if (campaign?.reserva_antes_pagamento && fulfillment === "entrega") {
+      if (!enderecoEncontrado) {
+        setErro("Informe um CEP válido para a entrega.");
+        return;
+      }
+      if (!logradouro.trim() || !numero.trim()) {
+        setErro("Informe a rua e o número da entrega.");
+        return;
+      }
+    }
     setLoading(true);
     setErro("");
     try {
@@ -91,17 +187,61 @@ export default function CheckoutPage() {
             complemento_ids: i.customization.complements.map((complement) => complement.id),
           })),
           customer_name: customerName || undefined,
+          customer_phone: customerPhone || undefined,
+          fulfillment: campaign?.reserva_antes_pagamento ? fulfillment : "retirada",
+          endereco:
+            campaign?.reserva_antes_pagamento && fulfillment === "entrega" && enderecoEncontrado
+              ? formatDeliveryAddress({
+                  logradouro,
+                  numero,
+                  complemento,
+                  bairro: enderecoEncontrado.bairro,
+                  localidade: enderecoEncontrado.localidade,
+                  uf: enderecoEncontrado.uf,
+                  cep: enderecoEncontrado.cep,
+                })
+              : undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error ?? "Não foi possível iniciar o pagamento.");
+        throw new Error(data.error ?? "Não foi possível registrar o pedido.");
       }
-      setPaymentModal({
-        orderId: data.orderId,
+      if (data.mode === "infinitepay") {
+        setPaymentModal({
+          orderId: data.orderId,
+          pickupCode: data.pickupCode,
+          paymentUrl: data.paymentUrl,
+          total: Number(data.total),
+        });
+        return;
+      }
+      const resumo = cart.map((item) => {
+        const unit = cartUnitPrice(item);
+        const montagem = [
+          item.customization.removals.length > 0
+            ? `sem ${item.customization.removals.map((removal) => removal.nome).join(", ")}`
+            : null,
+          item.customization.complements.length > 0
+            ? item.customization.complements.map((complement) => `+ ${complement.nome}`).join(", ")
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        const linha = `${item.quantidade}x ${item.menuItem.nome} — ${formatBRL(unit * item.quantidade)}`;
+        return montagem ? `${linha} (${montagem})` : linha;
+      });
+      clearCart();
+      sessionStorage.setItem("pendingOrderId", data.orderId);
+      sessionStorage.setItem("pendingOrderPickupCode", data.pickupCode);
+      sessionStorage.removeItem("pendingPaymentUrl");
+      setChargeModal({
         pickupCode: data.pickupCode,
-        paymentUrl: data.paymentUrl,
         total: Number(data.total),
+        mode: data.mode,
+        recebimento: data.recebimento,
+        pixChave: data.pixChave ?? null,
+        resumo,
       });
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Erro inesperado.");
@@ -121,7 +261,26 @@ export default function CheckoutPage() {
     window.location.href = paymentModal.paymentUrl;
   }
 
-  if (checkingPending) {
+  const reserva = campaign?.reserva_antes_pagamento === true;
+  const pix = campaign?.recebimento === "pix";
+  const campanhaFechada = campaign === null;
+
+  function chargeLink() {
+    if (!chargeModal) return "#";
+    const trackingUrl = `${window.location.origin}/${tenant}/pedido/${chargeModal.pickupCode}`;
+    return buildWhatsAppLink({
+      phone: customerPhone,
+      message: buildBuyerSaveMessage({
+        lines: chargeModal.resumo,
+        pickupCode: chargeModal.pickupCode,
+        trackingUrl,
+        totalLabel: formatBRL(chargeModal.total),
+        pixChave: chargeModal.recebimento === "pix" ? chargeModal.pixChave : null,
+      }),
+    });
+  }
+
+  if (checkingPending || campaign === undefined) {
     return (
       <div className="min-h-screen bg-brand-paper text-black">
         <PublicHeader />
@@ -138,10 +297,12 @@ export default function CheckoutPage() {
 
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         {pendingOrder &&
-          (pendingOrder.status === "aguardando_pagamento" ? (
+          (pendingOrder.status === "aguardando_pagamento" || pendingOrder.status === "reservado" ? (
             <Card className="mb-6 border-brand-orange/40 bg-brand-orange/10 p-5">
               <h2 className="text-base font-semibold text-black">
-                Você tem um pedido aguardando pagamento
+                {pendingOrder.status === "reservado"
+                  ? "Você tem uma reserva em aberto"
+                  : "Você tem um pedido aguardando pagamento"}
               </h2>
               <p className="mt-1 text-sm text-neutral-700">
                 Código <span className="font-bold">{pendingOrder.pickupCode}</span>. Se
@@ -209,8 +370,19 @@ export default function CheckoutPage() {
               Finalizar pedido
             </h1>
             <p className="mt-1 text-sm text-neutral-500">
-              Confirme seu pedido antes de prosseguir para o pagamento.
+              {reserva
+                ? "Reserve os itens e escolha se quer receber ou retirar. O pagamento fica para depois."
+                : pix
+                  ? "Confirme o pedido. A cobrança segue por Pix no WhatsApp."
+                  : "Confirme seu pedido antes de prosseguir para o pagamento."}
             </p>
+            {campanhaFechada && (
+              <Card className="mt-6 border-brand-orange/40 bg-brand-orange/10 p-5">
+                <p className="text-sm text-black">
+                  A campanha está encerrada. Novos pedidos ficam para a próxima campanha.
+                </p>
+              </Card>
+            )}
 
             <div className="mt-6 space-y-5">
               <Card className="p-5">
@@ -224,7 +396,108 @@ export default function CheckoutPage() {
                     onChange={(e) => setCustomerName(e.target.value)}
                   />
                 </Field>
+                {(reserva || pix) && (
+                  <div className="mt-4">
+                    <Field label="Telefone" required={reserva}>
+                      <Input
+                        inputMode="tel"
+                        placeholder="DDD e número"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                      />
+                    </Field>
+                  </div>
+                )}
               </Card>
+
+              {reserva && (
+                <Card className="p-5">
+                  <h2 className="mb-4 border-b border-neutral-200 pb-3 text-lg font-semibold text-black">
+                    Como você quer receber
+                  </h2>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm text-neutral-800">
+                      <input
+                        type="radio"
+                        name="fulfillment"
+                        checked={fulfillment === "retirada"}
+                        onChange={() => setFulfillment("retirada")}
+                      />
+                      Retirar
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-neutral-800">
+                      <input
+                        type="radio"
+                        name="fulfillment"
+                        checked={fulfillment === "entrega"}
+                        onChange={() => setFulfillment("entrega")}
+                      />
+                      Receber
+                    </label>
+                  </div>
+                  {fulfillment === "entrega" && (
+                    <div className="mt-4 space-y-4">
+                      <Field label="CEP" required>
+                        <Input
+                          inputMode="numeric"
+                          placeholder="00000-000"
+                          value={formatCep(cep)}
+                          onChange={(e) => {
+                            const digits = onlyCepDigits(e.target.value);
+                            setCep(digits);
+                            setCepErro("");
+                            setEnderecoEncontrado(null);
+                            setLogradouro("");
+                            if (digits.length === 8) {
+                              void buscarCep(digits);
+                            }
+                          }}
+                        />
+                      </Field>
+                      {cepLoading && <p className="text-sm text-neutral-500">Buscando endereço...</p>}
+                      {cepErro && <p className="text-sm text-red-600">{cepErro}</p>}
+                      {enderecoEncontrado && (
+                        <>
+                          <p className="text-sm text-neutral-700">
+                            {[
+                              enderecoEncontrado.logradouro,
+                              enderecoEncontrado.bairro,
+                              enderecoEncontrado.localidade
+                                ? `${enderecoEncontrado.localidade}/${enderecoEncontrado.uf}`
+                                : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" — ")}
+                          </p>
+                          {!enderecoEncontrado.logradouro && (
+                            <Field label="Rua" required>
+                              <Input
+                                value={logradouro}
+                                onChange={(e) => setLogradouro(e.target.value)}
+                                placeholder="Nome da rua"
+                              />
+                            </Field>
+                          )}
+                          <Field label="Número" required>
+                            <Input
+                              value={numero}
+                              onChange={(e) => setNumero(e.target.value)}
+                              placeholder="120"
+                            />
+                          </Field>
+                          <Field label="Complemento">
+                            <Input
+                              value={complemento}
+                              onChange={(e) => setComplemento(e.target.value)}
+                              placeholder="Apto, bloco ou referência"
+                            />
+                          </Field>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </Card>
+              )}
 
               <Card className="p-5">
                 <h2 className="mb-4 border-b border-neutral-200 pb-3 text-lg font-semibold text-black">
@@ -264,21 +537,27 @@ export default function CheckoutPage() {
               <Button
                 variant="primary"
                 className="w-full"
-                disabled={loading}
+                disabled={loading || campanhaFechada}
                 onClick={handleContinue}
               >
                 {loading ? (
-                  "Gerando pagamento..."
+                  "Registrando pedido..."
+                ) : reserva ? (
+                  "Reservar pedido"
+                ) : pix ? (
+                  "Registrar pedido"
                 ) : (
                   <>
                     <IconLock className="h-4 w-4" /> Continuar para o pagamento
                   </>
                 )}
               </Button>
-              <p className="flex items-center justify-center gap-1.5 text-center text-xs text-neutral-500">
-                <IconLock className="h-3.5 w-3.5" />
-                Você será direcionado para o ambiente seguro da InfinitePay.
-              </p>
+              {!reserva && !pix && !campanhaFechada && (
+                <p className="flex items-center justify-center gap-1.5 text-center text-xs text-neutral-500">
+                  <IconLock className="h-3.5 w-3.5" />
+                  Você será direcionado para o ambiente seguro da InfinitePay.
+                </p>
+              )}
             </div>
           </>
         )}
@@ -312,6 +591,49 @@ export default function CheckoutPage() {
               Depois de concluir o pagamento na InfinitePay, clique no botão para voltar
               à loja — não use o botão <strong>Voltar</strong> do navegador nem feche a
               aba, para não perder a confirmação do seu pedido.
+            </p>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={!!chargeModal}
+        onClose={() => setChargeModal(null)}
+        title={chargeModal?.mode === "reserva" ? "Reserva registrada" : "Pedido registrado"}
+        size="sm"
+        footer={
+          <a href={chargeLink()} target="_blank" rel="noopener noreferrer" className="w-full sm:w-auto">
+            <Button variant="primary" className="w-full">
+              Salvar no meu WhatsApp
+            </Button>
+          </a>
+        }
+      >
+        {chargeModal && (
+          <div className="space-y-3 text-sm text-neutral-700">
+            {chargeModal.resumo.length > 0 && (
+              <ul className="space-y-1">
+                {chargeModal.resumo.map((linha, index) => (
+                  <li key={`${index}-${linha}`}>{linha}</li>
+                ))}
+              </ul>
+            )}
+            <p>
+              Sua senha é{" "}
+              <span className="text-lg font-bold text-black">{chargeModal.pickupCode}</span>.
+            </p>
+            <p>
+              Valor: <span className="font-bold text-black">{formatBRL(chargeModal.total)}</span>
+            </p>
+            {chargeModal.recebimento === "pix" && chargeModal.pixChave && (
+              <p>
+                Pix: <span className="font-medium text-black">{chargeModal.pixChave}</span>
+              </p>
+            )}
+            <p>
+              {chargeModal.mode === "reserva"
+                ? "O pagamento fica para depois. O organizador acompanha esta reserva na lista de pedidos."
+                : "O pedido só entra como pago depois que o organizador confirmar o Pix."}
             </p>
           </div>
         )}

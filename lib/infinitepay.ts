@@ -140,7 +140,7 @@ export async function confirmInfinitePayPayment(params: {
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
-    .select("id, payment_status, tenant_id")
+    .select("id, payment_status, tenant_id, status")
     .eq("id", params.orderId)
     .maybeSingle();
 
@@ -174,12 +174,16 @@ export async function confirmInfinitePayPayment(params: {
 
   const paymentMethod =
     params.captureMethod === "pix" ? "infinitepay_pix" : "infinitepay_credito";
+  const nextStatus =
+    order.status === "aguardando_pagamento" || order.status === "reservado"
+      ? "recebido"
+      : order.status;
 
   const { data: updated, error: updateError } = await supabase
     .from("orders")
     .update({
       payment_status: "pago",
-      status: "recebido",
+      status: nextStatus,
       payment_method: paymentMethod,
       infinitepay_transaction_nsu: params.transactionNsu,
       infinitepay_slug: params.slug,
@@ -194,11 +198,13 @@ export async function confirmInfinitePayPayment(params: {
   if (updateError) throw updateError;
   if (!updated) return { confirmed: true, alreadyProcessed: true };
 
-  await supabase.from("order_status_events").insert({
-    order_id: params.orderId,
-    status_anterior: "aguardando_pagamento",
-    status_novo: "recebido",
-  });
+  if (nextStatus !== order.status) {
+    await supabase.from("order_status_events").insert({
+      order_id: params.orderId,
+      status_anterior: order.status,
+      status_novo: nextStatus,
+    });
+  }
 
   return { confirmed: true, alreadyProcessed: false };
 }

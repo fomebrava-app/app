@@ -3,22 +3,40 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Button, Card, SummaryCard } from "@/components/ui";
 import { IconBox, IconMoney, IconLayers, IconChefHat, IconPlus, IconPOS, IconCalculator } from "@/components/icons";
 import { formatBRL } from "@/lib/format";
-import { getDashboardStats, getTenantBySlug } from "@/lib/queries";
+import { CampaignSelect } from "@/components/admin/CampaignSelect";
+import { getCampaigns, getDashboardStats, getTenantBySlug, pickCampaign } from "@/lib/queries";
 import Link from "next/link";
 
 export default async function AdminOverviewPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ tenant: string }>;
+  searchParams: Promise<{ campanha?: string }>;
 }) {
   const { tenant: tenantSlug } = await params;
+  const { campanha } = await searchParams;
   const tenant = await getTenantBySlug(tenantSlug);
   if (!tenant) notFound();
 
-  const stats = await getDashboardStats(tenant.id);
+  const campaigns = await getCampaigns(tenant.id);
+  const selected = pickCampaign(campaigns, campanha);
+  const stats = await getDashboardStats(
+    tenant.id,
+    selected?.id ?? null,
+    selected?.status === "aberta"
+  );
+  const periodoHoje = selected?.status !== "encerrada";
 
   return (
-    <AdminLayout title="Visão geral" subtitle="Resumo da operação do evento.">
+    <AdminLayout
+      title="Visão geral"
+      subtitle="Resumo da operação do evento."
+      campaignName={selected?.nome ?? "Nenhuma campanha aberta"}
+      actions={
+        selected ? <CampaignSelect campaigns={campaigns} selectedId={selected.id} /> : undefined
+      }
+    >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard
           label="Itens no cardápio"
@@ -26,12 +44,12 @@ export default async function AdminOverviewPage({
           icon={<IconBox className="h-5 w-5" />}
         />
         <SummaryCard
-          label="Pedidos hoje"
+          label={periodoHoje ? "Pedidos hoje" : "Pedidos pagos"}
           value={`${stats.pedidosHoje}`}
           icon={<IconLayers className="h-5 w-5" />}
         />
         <SummaryCard
-          label="Faturamento hoje"
+          label={periodoHoje ? "Faturamento hoje" : "Faturamento da campanha"}
           value={formatBRL(stats.faturamentoHoje)}
           icon={<IconMoney className="h-5 w-5" />}
         />

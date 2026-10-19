@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { PublicHeader } from "@/components/public/PublicHeader";
 import { MenuBrowser } from "@/components/public/MenuBrowser";
-import { getMenuCategories, getMenuItems, getTenantBySlug } from "@/lib/queries";
+import { getMenuCategories, getMenuItems, getOpenCampaign, getTenantBySlug } from "@/lib/queries";
 
 export default async function CardapioPage({
   params,
@@ -12,9 +12,10 @@ export default async function CardapioPage({
   const tenant = await getTenantBySlug(tenantSlug);
   if (!tenant) notFound();
 
-  const [items, categories] = await Promise.all([
+  const [items, categories, openCampaign] = await Promise.all([
     getMenuItems(tenant.id),
     getMenuCategories(tenant.id),
+    getOpenCampaign(tenant.id),
   ]);
 
   const destaque = items.find((i) => i.destaque) ?? items[0];
@@ -54,7 +55,7 @@ export default async function CardapioPage({
         </div>
       </section>
 
-      <MenuBrowser items={items} categories={categories} />
+      <MenuBrowser items={items} categories={categories} orderingOpen={!!openCampaign} />
 
       <footer className="border-t border-neutral-200 bg-brand-paper">
         <div className="mx-auto max-w-6xl px-4 py-8 text-center text-xs font-bold text-black sm:px-6 sm:py-10">

@@ -20,9 +20,11 @@ import type { FinanceLedgerEntry } from "@/lib/types";
 export function FinanceClient({
   tenantId,
   ledger,
+  readOnly = false,
 }: {
   tenantId: string;
   ledger: FinanceLedgerEntry[];
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -93,11 +95,13 @@ export function FinanceClient({
         />
       </div>
 
-      <div className="flex justify-end">
-        <Button variant="primary" onClick={() => setModalOpen(true)}>
-          <IconPlus className="h-4 w-4" /> Nova despesa
-        </Button>
-      </div>
+      {!readOnly && (
+        <div className="flex justify-end">
+          <Button variant="primary" onClick={() => setModalOpen(true)}>
+            <IconPlus className="h-4 w-4" /> Nova despesa
+          </Button>
+        </div>
+      )}
 
       {ledger.length === 0 ? (
         <EmptyState

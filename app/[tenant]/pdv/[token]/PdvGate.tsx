@@ -14,6 +14,8 @@ export function PdvGate({
   ativo,
   items,
   customizations,
+  campaignOpen,
+  pixChave,
 }: {
   tenant: string;
   token: string;
@@ -21,6 +23,8 @@ export function PdvGate({
   ativo: boolean;
   items: MenuItem[];
   customizations: MenuCustomizations;
+  campaignOpen: boolean;
+  pixChave: string | null;
 }) {
   const [password, setPassword] = useState("");
   const [unlockedPassword, setUnlockedPassword] = useState<string | null>(null);
@@ -69,13 +73,22 @@ export function PdvGate({
           <p className="text-sm text-neutral-500">Ponto de venda</p>
         </div>
         <div className="mx-auto max-w-6xl">
-          <PdvSaleForm
-            tenant={tenant}
-            items={items}
-            customizations={customizations}
-            pdvToken={token}
-            pdvPassword={unlockedPassword}
-          />
+          {campaignOpen ? (
+            <PdvSaleForm
+              tenant={tenant}
+              items={items}
+              customizations={customizations}
+              pdvToken={token}
+              pdvPassword={unlockedPassword}
+              pixChave={pixChave}
+            />
+          ) : (
+            <Card className="mx-auto max-w-md p-6 text-center">
+              <p className="text-sm text-neutral-700">
+                A campanha está encerrada. Abra uma nova campanha no painel para vender.
+              </p>
+            </Card>
+          )}
         </div>
       </div>
     );

@@ -14,10 +14,12 @@ export function AddToCartControl({
   item,
   ingredients = [],
   complements = [],
+  orderingOpen = true,
 }: {
   item: MenuItem;
   ingredients?: MenuItemIngredient[];
   complements?: MenuItemComplement[];
+  orderingOpen?: boolean;
 }) {
   const { addToCart } = useCart();
   const router = useRouter();
@@ -123,7 +125,7 @@ export function AddToCartControl({
         </div>
         <Button
           variant="primary"
-          disabled={esgotado}
+          disabled={esgotado || !orderingOpen}
           className="flex-1 sm:flex-none"
           onClick={() => {
             addToCart(item, qty, customization);

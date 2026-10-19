@@ -2,22 +2,27 @@
 
 import { Fragment, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { ChargeWhatsAppButton } from "@/components/admin/ChargeWhatsAppButton";
 import { MontagemTexto } from "@/components/orders/MontagemTexto";
 import { Button, Card, EmptyState, Field, Modal, Select, StatusBadge, Textarea } from "@/components/ui";
 import { IconAlert, IconLayers } from "@/components/icons";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/cn";
 import { formatBRL } from "@/lib/format";
+import { buildWhatsAppLink } from "@/lib/whatsapp";
 import {
   ORDER_STATUS_ACCENT_CLASS,
   ORDER_STATUS_LABEL,
+  type CampaignRecebimento,
   type Order,
+  type OrderContact,
   type OrderItem,
   type OrderStatus,
 } from "@/lib/types";
 
 const STATUS_OPTIONS: OrderStatus[] = [
   "aguardando_pagamento",
+  "reservado",
   "recebido",
   "fazendo",
   "pronto",
@@ -28,9 +33,17 @@ const STATUS_OPTIONS: OrderStatus[] = [
 export function PedidosTable({
   orders,
   itemsByOrder,
+  contactsByOrder,
+  readOnly = false,
+  recebimento,
+  pixChave,
 }: {
   orders: Order[];
   itemsByOrder: Record<string, OrderItem[]>;
+  contactsByOrder: Record<string, OrderContact>;
+  readOnly?: boolean;
+  recebimento: CampaignRecebimento;
+  pixChave: string | null;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -41,6 +54,7 @@ export function PedidosTable({
   const [nota, setNota] = useState("");
   const [savingPayment, setSavingPayment] = useState(false);
   const [erroPayment, setErroPayment] = useState("");
+  const [charging, setCharging] = useState<string | null>(null);
 
   async function handleConfirmPayment() {
     if (!confirmingPayment || !nota.trim()) return;
@@ -58,6 +72,29 @@ export function PedidosTable({
     setConfirmingPayment(null);
     setNota("");
     router.refresh();
+  }
+
+  async function handleCharge(order: Order) {
+    setCharging(order.id);
+    setErroPayment("");
+    try {
+      const res = await fetch("/api/orders/charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tenant, orderId: order.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Não foi possível montar a cobrança.");
+      const link = buildWhatsAppLink({
+        phone: contactsByOrder[order.id]?.customer_phone,
+        message: data.message,
+      });
+      window.open(link, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setErroPayment(err instanceof Error ? err.message : "Erro inesperado.");
+    } finally {
+      setCharging(null);
+    }
   }
 
   async function handleStatusChange(order: Order, novoStatus: OrderStatus) {
@@ -88,6 +125,9 @@ export function PedidosTable({
 
   return (
     <Card className="overflow-hidden">
+      {erroPayment && !confirmingPayment && (
+        <p className="border-b border-neutral-200 px-4 py-3 text-sm text-red-600">{erroPayment}</p>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-neutral-200 bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500">
@@ -117,7 +157,7 @@ export function PedidosTable({
                     <StatusBadge tone={order.payment_status === "pago" ? "medium" : "soft"}>
                       {order.payment_status}
                     </StatusBadge>
-                    {order.payment_status !== "pago" && (
+                    {!readOnly && order.payment_status !== "pago" && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -130,6 +170,13 @@ export function PedidosTable({
                         Confirmar pagamento
                       </button>
                     )}
+                    {!readOnly && order.payment_status === "pendente" && (
+                      <ChargeWhatsAppButton
+                        label={charging === order.id ? "Abrindo WhatsApp..." : "Cobrar no WhatsApp"}
+                        disabled={charging === order.id}
+                        onClick={() => handleCharge(order)}
+                      />
+                    )}
                   </td>
                   <td className="px-4 py-3 font-medium text-black">
                     {formatBRL(order.total)}
@@ -140,7 +187,7 @@ export function PedidosTable({
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <Select
                       value={order.status}
-                      disabled={pending === order.id}
+                      disabled={readOnly || pending === order.id}
                       onChange={(e) =>
                         handleStatusChange(order, e.target.value as OrderStatus)
                       }
@@ -179,6 +226,20 @@ export function PedidosTable({
                         <p className="mt-2 text-xs text-neutral-500">
                           Cliente: {order.customer_name}
                         </p>
+                      )}
+                      <p className="mt-1 text-xs text-neutral-500">
+                        {order.fulfillment === "entrega" ? "Entrega" : "Retirada"}
+                        {contactsByOrder[order.id]?.endereco
+                          ? ` — ${contactsByOrder[order.id].endereco}`
+                          : ""}
+                      </p>
+                      {contactsByOrder[order.id]?.customer_phone && (
+                        <p className="mt-1 text-xs text-neutral-500">
+                          Telefone: {contactsByOrder[order.id].customer_phone}
+                        </p>
+                      )}
+                      {recebimento === "pix" && pixChave && (
+                        <p className="mt-1 text-xs text-neutral-500">Pix: {pixChave}</p>
                       )}
                       {order.pdv_label_snapshot && (
                         <p className="mt-1 text-xs text-neutral-500">

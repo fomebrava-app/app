@@ -27,6 +27,7 @@ interface OrderDetail {
   status: OrderStatus;
   channel: "online" | "pdv";
   payment_status: "pendente" | "pago" | "falhou";
+  fulfillment?: "retirada" | "entrega";
   total: number;
   created_at: string;
   paid_at: string | null;
@@ -156,7 +157,8 @@ export function AcompanharPedidoClient({
     );
   }
 
-  const aguardandoPagamento = order.status === "aguardando_pagamento";
+  const aguardandoPagamento =
+    order.status === "aguardando_pagamento" || order.status === "reservado";
   const currentStepIdx = STEPS.indexOf(order.status);
 
   return (
@@ -169,14 +171,18 @@ export function AcompanharPedidoClient({
           <p className="mt-1 text-[56px] font-bold leading-none tracking-widest text-black">
             {order.pickup_code}
           </p>
+          {order.fulfillment === "entrega" && (
+            <p className="mt-2 text-sm font-medium text-black">Entrega</p>
+          )}
         </div>
 
         {aguardandoPagamento ? (
           <Card className="mt-8 flex flex-col items-center gap-3 p-6 text-center">
             <Loading label="Aguardando confirmação do pagamento..." />
             <p className="text-xs text-neutral-500">
-              Assim que a InfinitePay confirmar, seu pedido segue para a cozinha
-              automaticamente.
+              {order.status === "reservado"
+                ? "Sua reserva está com o organizador. O pagamento fica para depois."
+                : "Assim que o pagamento for confirmado, seu pedido segue para a cozinha."}
             </p>
           </Card>
         ) : (
@@ -239,6 +245,11 @@ export function AcompanharPedidoClient({
                 {ORDER_STATUS_LABEL[order.status]}
               </StatusBadge>
             </div>
+            {order.payment_status === "pendente" && (
+              <p className="mt-4 text-center text-xs text-neutral-500">
+                Pagamento ainda pendente.
+              </p>
+            )}
           </Card>
         )}
 

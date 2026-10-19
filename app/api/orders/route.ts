@@ -18,6 +18,9 @@ interface CreateOrderBody {
   items: OrderItemInput[];
   payment_method?: "dinheiro" | "pix_presencial";
   customer_name?: string;
+  customer_phone?: string;
+  fulfillment?: "retirada" | "entrega";
+  endereco?: string;
   pdv_token?: string;
   pdv_password?: string;
 }
@@ -60,6 +63,7 @@ export async function POST(request: Request) {
       p_customer_name: body.customer_name ?? null,
       p_pdv_link_id: link.id,
       p_pdv_label_snapshot: link.label,
+      p_fulfillment: "retirada",
     });
 
     if (error || !data?.[0]) {
@@ -81,6 +85,9 @@ export async function POST(request: Request) {
     p_items: body.items,
     p_tenant_slug: body.tenant,
     p_customer_name: body.customer_name ?? null,
+    p_customer_phone: body.customer_phone ?? null,
+    p_fulfillment: body.fulfillment ?? "retirada",
+    p_endereco: body.endereco ?? null,
   });
 
   if (error || !data?.[0]) {
@@ -93,6 +100,43 @@ export async function POST(request: Request) {
   const order = data[0];
 
   const admin = createAdminClient();
+  const { data: createdOrder, error: createdError } = await admin
+    .from("orders")
+    .select("campaign_id")
+    .eq("id", order.id)
+    .single();
+
+  if (createdError || !createdOrder) {
+    return NextResponse.json(
+      { error: createdError?.message ?? "Erro ao carregar a campanha do pedido." },
+      { status: 400 }
+    );
+  }
+
+  const { data: campaign, error: campaignError } = await admin
+    .from("campaigns")
+    .select("recebimento, pix_chave, reserva_antes_pagamento")
+    .eq("id", createdOrder.campaign_id)
+    .single();
+
+  if (campaignError || !campaign) {
+    return NextResponse.json(
+      { error: campaignError?.message ?? "Campanha do pedido não encontrada." },
+      { status: 400 }
+    );
+  }
+
+  if (campaign.reserva_antes_pagamento || campaign.recebimento === "pix") {
+    return NextResponse.json({
+      orderId: order.id,
+      pickupCode: order.pickup_code,
+      total: order.total,
+      mode: campaign.reserva_antes_pagamento ? "reserva" : "pix",
+      recebimento: campaign.recebimento,
+      pixChave: campaign.pix_chave,
+    });
+  }
+
   const { data: lines, error: linesError } = await admin
     .from("order_items")
     .select("id, nome_snapshot, preco_unitario_snapshot, quantidade")
@@ -147,6 +191,8 @@ export async function POST(request: Request) {
       orderId: order.id,
       pickupCode: order.pickup_code,
       total: order.total,
+      mode: "infinitepay",
+      recebimento: "infinitepay",
       paymentUrl,
     });
   } catch (err) {

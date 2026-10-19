@@ -5,7 +5,7 @@ import { AddToCartControl } from "@/components/public/AddToCartControl";
 import { StatusBadge } from "@/components/ui";
 import { IconArrowLeft } from "@/components/icons";
 import { formatBRL } from "@/lib/format";
-import { getMenuItemById, getMenuItemCustomization, getTenantBySlug } from "@/lib/queries";
+import { getMenuItemById, getMenuItemCustomization, getOpenCampaign, getTenantBySlug } from "@/lib/queries";
 
 export default async function ItemPage({
   params,
@@ -22,9 +22,12 @@ export default async function ItemPage({
     notFound();
   }
 
-  const customization = item.personalizavel
-    ? await getMenuItemCustomization(item.id, tenant.id)
-    : { ingredients: [], complements: [] };
+  const [customization, openCampaign] = await Promise.all([
+    item.personalizavel
+      ? getMenuItemCustomization(item.id, tenant.id)
+      : Promise.resolve({ ingredients: [], complements: [] }),
+    getOpenCampaign(tenant.id),
+  ]);
 
   const hasPromo = !!item.preco_promocional;
   const esgotado = item.status === "esgotado";
@@ -93,10 +96,17 @@ export default async function ItemPage({
               </p>
             )}
 
+            {!openCampaign && (
+              <p className="mt-5 rounded border border-brand-orange/40 bg-brand-orange/10 px-4 py-3 text-sm text-black">
+                A campanha está encerrada. Novos pedidos ficam para a próxima campanha.
+              </p>
+            )}
+
             <AddToCartControl
               item={item}
               ingredients={customization.ingredients}
               complements={customization.complements}
+              orderingOpen={!!openCampaign}
             />
 
             {item.descricao_completa && (

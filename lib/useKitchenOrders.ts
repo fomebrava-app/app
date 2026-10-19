@@ -17,6 +17,7 @@ export interface KitchenOrder {
   status: OrderStatus;
   channel: "online" | "pdv";
   customer_name: string | null;
+  fulfillment?: "retirada" | "entrega";
   created_at: string;
   items: KitchenOrderItem[];
 }

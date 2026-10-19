@@ -16,7 +16,6 @@ export function SettingsForm({
   const router = useRouter();
   const supabase = createClient();
   const [eventName, setEventName] = useState(settings.event_name);
-  const [whatsappNumber, setWhatsappNumber] = useState(settings.whatsapp_default_number ?? "");
   const [messageTemplate, setMessageTemplate] = useState(
     settings.whatsapp_message_template ?? ""
   );
@@ -38,7 +37,6 @@ export function SettingsForm({
         .from("event_settings")
         .update({
           event_name: eventName.trim() || "Meu Evento",
-          whatsapp_default_number: whatsappNumber.trim() || null,
           whatsapp_message_template: messageTemplate.trim() || null,
         })
         .eq("id", settings.id),
@@ -63,7 +61,7 @@ export function SettingsForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-2xl space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <Card className="p-5">
         <h2 className="mb-4 border-b border-neutral-200 pb-3 text-lg font-semibold text-black">
           Evento
@@ -78,13 +76,6 @@ export function SettingsForm({
           WhatsApp
         </h2>
         <div className="space-y-4">
-          <Field label="Número padrão (opcional)">
-            <Input
-              placeholder="(00) 00000-0000"
-              value={whatsappNumber}
-              onChange={(e) => setWhatsappNumber(e.target.value)}
-            />
-          </Field>
           <Field label="Modelo de mensagem">
             <Textarea
               value={messageTemplate}

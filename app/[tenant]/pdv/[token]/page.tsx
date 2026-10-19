@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getMenuCustomizations, getMenuItems, getTenantBySlug } from "@/lib/queries";
+import { getMenuCustomizations, getMenuItems, getOpenCampaign, getTenantBySlug } from "@/lib/queries";
 import { PdvGate } from "./PdvGate";
 
 // Tela pública protegida por senha — nunca deve ser servida como HTML estático.
@@ -24,9 +24,10 @@ export default async function PdvTokenPage({
 
   if (!link || link.tenant_id !== tenant.id) notFound();
 
-  const [items, customizations] = await Promise.all([
+  const [items, customizations, openCampaign] = await Promise.all([
     getMenuItems(tenant.id),
     getMenuCustomizations(tenant.id),
+    getOpenCampaign(tenant.id),
   ]);
 
   return (
@@ -37,6 +38,8 @@ export default async function PdvTokenPage({
       ativo={link.ativo}
       items={items}
       customizations={customizations}
+      campaignOpen={!!openCampaign}
+      pixChave={openCampaign?.recebimento === "pix" ? openCampaign.pix_chave : null}
     />
   );
 }

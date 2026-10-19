@@ -9,9 +9,11 @@ import type { MenuCategory, MenuItem } from "@/lib/types";
 export function MenuBrowser({
   items,
   categories,
+  orderingOpen = true,
 }: {
   items: MenuItem[];
   categories: MenuCategory[];
+  orderingOpen?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [categoriaId, setCategoriaId] = useState("");
@@ -63,6 +65,12 @@ export function MenuBrowser({
         </div>
       </div>
 
+      {!orderingOpen && (
+        <p className="mb-6 rounded border border-brand-orange/40 bg-brand-orange/10 px-4 py-3 text-sm text-black">
+          A campanha está encerrada. O cardápio continua visível, mas novos pedidos ficam para a próxima campanha.
+        </p>
+      )}
+
       {filtered.length === 0 ? (
         <EmptyState
           icon={<IconBox className="h-10 w-10" />}
@@ -72,7 +80,7 @@ export function MenuBrowser({
       ) : (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((item) => (
-            <MenuItemCard key={item.id} item={item} />
+            <MenuItemCard key={item.id} item={item} orderingOpen={orderingOpen} />
           ))}
         </div>
       )}

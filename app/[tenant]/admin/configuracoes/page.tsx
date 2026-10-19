@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { SettingsForm } from "@/components/admin/SettingsForm";
-import { getEventSettings, getTenantBySlug } from "@/lib/queries";
+import { CampaignPanel } from "@/components/admin/CampaignPanel";
+import { getCampaigns, getEventSettings, getTenantBySlug } from "@/lib/queries";
 
 export default async function ConfiguracoesPage({
   params,
@@ -12,11 +13,22 @@ export default async function ConfiguracoesPage({
   const tenant = await getTenantBySlug(tenantSlug);
   if (!tenant) notFound();
 
-  const settings = await getEventSettings(tenant.id);
+  const [settings, campaigns] = await Promise.all([
+    getEventSettings(tenant.id),
+    getCampaigns(tenant.id),
+  ]);
+  const openCampaign = campaigns.find((campaign) => campaign.status === "aberta") ?? null;
 
   return (
-    <AdminLayout title="Configurações" subtitle="Dados gerais do evento.">
-      <SettingsForm tenant={tenant} settings={settings} />
+    <AdminLayout
+      title="Configurações"
+      subtitle="Dados gerais do evento."
+      campaignName={openCampaign?.nome ?? "Nenhuma campanha aberta"}
+    >
+      <div className="max-w-2xl space-y-5">
+        <CampaignPanel tenantSlug={tenant.slug} openCampaign={openCampaign} />
+        <SettingsForm tenant={tenant} settings={settings} />
+      </div>
     </AdminLayout>
   );
 }

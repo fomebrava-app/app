@@ -75,11 +75,13 @@ export function AdminLayout({
   title,
   subtitle,
   actions,
+  campaignName,
   children,
 }: {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  campaignName?: string;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -88,6 +90,7 @@ export function AdminLayout({
   const [open, setOpen] = useState(false);
   const [platformAdmin, setPlatformAdmin] = useState(false);
   const [email, setEmail] = useState("");
+  const [campaignLabel, setCampaignLabel] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -110,6 +113,33 @@ export function AdminLayout({
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const supabase = createClient();
+    (async () => {
+      try {
+        const { data: store } = await supabase
+          .from("tenants")
+          .select("id")
+          .eq("slug", tenant)
+          .maybeSingle();
+        if (!active || !store) return;
+        const { data } = await supabase
+          .from("campaigns")
+          .select("nome")
+          .eq("tenant_id", store.id)
+          .eq("status", "aberta")
+          .maybeSingle();
+        if (active) setCampaignLabel(data?.nome ?? "Nenhuma campanha aberta");
+      } catch {
+        if (active) setCampaignLabel("");
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [tenant]);
   const supabase = createClient();
   const navItems = buildNavItems(tenant);
   const adminBase = `/${tenant}/admin`;
@@ -250,6 +280,11 @@ export function AdminLayout({
                 {title}
               </h1>
               {subtitle && <p className="mt-1 text-sm text-neutral-500">{subtitle}</p>}
+              {(campaignName || campaignLabel) && (
+                <p className="mt-1 text-sm font-medium text-black">
+                  Campanha: {campaignName || campaignLabel}
+                </p>
+              )}
             </div>
             {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
           </div>

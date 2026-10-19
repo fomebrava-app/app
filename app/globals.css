@@ -141,3 +141,75 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 0em;
   transform: rotate(45deg);
 }
+
+/* Cobrança no WhatsApp, na coluna de pagamento. Menor que o modelo
+   de 48px: cabe numa linha sem cortar o rótulo nem estourar a célula. */
+.charge-wa-button {
+  --clr: #00ad54;
+  display: inline-flex;
+  margin-top: 0.35rem;
+  max-width: 100%;
+  text-decoration: none;
+  line-height: 1;
+  border-radius: 1rem;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.05);
+  background-color: #fff;
+  color: #121212;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.charge-wa-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.charge-wa-button-decor {
+  position: absolute;
+  inset: 0;
+  background-color: var(--clr);
+  transform: translateX(-100%);
+  transition: transform 0.3s;
+  z-index: 0;
+}
+
+.charge-wa-button-content {
+  display: flex;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.charge-wa-button__icon {
+  width: 32px;
+  height: 28px;
+  flex: none;
+  background-color: var(--clr);
+  display: grid;
+  place-items: center;
+}
+
+.charge-wa-button__text {
+  display: block;
+  transition: color 0.2s;
+  padding: 2px 0.7rem 2px 0.45rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: clip;
+}
+
+.charge-wa-button:hover:not(:disabled) .charge-wa-button__text {
+  color: #fff;
+}
+
+.charge-wa-button:hover:not(:disabled) .charge-wa-button-decor {
+  transform: translateX(0);
+}

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type {
+  Campaign,
   EventSettings,
   Expense,
   FinanceLedgerEntry,
@@ -8,6 +9,7 @@ import type {
   MenuItemComplement,
   MenuItemIngredient,
   Order,
+  OrderContact,
   OrderItem,
   PdvLink,
   PricingScenarioSummary,
@@ -155,10 +157,33 @@ export interface DashboardStats {
 // orders_select_public é "using (true)" — sem tenant nenhum embutido na
 // RLS — por isso todo filtro de orders abaixo precisa do .eq tenant_id
 // explícito, senão soma pedido de todo mundo.
-export async function getDashboardStats(tenantId: string): Promise<DashboardStats> {
+export async function getDashboardStats(
+  tenantId: string,
+  campaignId: string | null,
+  openCampaign: boolean
+): Promise<DashboardStats> {
   const supabase = await createClient();
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
+
+  let paidQuery = supabase
+    .from("orders")
+    .select("total")
+    .eq("tenant_id", tenantId)
+    .eq("payment_status", "pago");
+  let activeQuery = supabase
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", tenantId)
+    .in("status", ["recebido", "fazendo", "pronto"]);
+
+  if (campaignId) {
+    paidQuery = paidQuery.eq("campaign_id", campaignId);
+    activeQuery = activeQuery.eq("campaign_id", campaignId);
+  }
+  if (openCampaign) {
+    paidQuery = paidQuery.gte("created_at", startOfDay.toISOString());
+  }
 
   const [itensRes, pedidosHojeRes, ativosRes] = await Promise.all([
     supabase
@@ -166,17 +191,8 @@ export async function getDashboardStats(tenantId: string): Promise<DashboardStat
       .select("id", { count: "exact", head: true })
       .eq("tenant_id", tenantId)
       .neq("status", "inativo"),
-    supabase
-      .from("orders")
-      .select("total")
-      .eq("tenant_id", tenantId)
-      .eq("payment_status", "pago")
-      .gte("created_at", startOfDay.toISOString()),
-    supabase
-      .from("orders")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", tenantId)
-      .in("status", ["recebido", "fazendo", "pronto"]),
+    campaignId ? paidQuery : Promise.resolve({ data: [] as { total: number }[] }),
+    campaignId ? activeQuery : Promise.resolve({ count: 0 }),
   ]);
 
   const pedidosHojeData = pedidosHojeRes.data ?? [];
@@ -189,21 +205,62 @@ export async function getDashboardStats(tenantId: string): Promise<DashboardStat
   };
 }
 
+export async function getCampaigns(tenantId: string): Promise<Campaign[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("campaigns")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .order("opened_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getOpenCampaign(tenantId: string): Promise<Campaign | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("campaigns")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("status", "aberta")
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export function pickCampaign(
+  campaigns: Campaign[],
+  requestedId?: string
+): Campaign | null {
+  if (requestedId) {
+    const requested = campaigns.find((campaign) => campaign.id === requestedId);
+    if (requested) return requested;
+  }
+  return campaigns.find((campaign) => campaign.status === "aberta") ?? campaigns[0] ?? null;
+}
+
 export async function getAllOrdersAdmin(
   tenantId: string,
+  campaignId: string,
   limit = 200
-): Promise<{ orders: Order[]; itemsByOrder: Record<string, OrderItem[]> }> {
+): Promise<{
+  orders: Order[];
+  itemsByOrder: Record<string, OrderItem[]>;
+  contactsByOrder: Record<string, OrderContact>;
+}> {
   const supabase = await createClient();
   const { data: orders, error } = await supabase
     .from("orders")
     .select("*")
     .eq("tenant_id", tenantId)
+    .eq("campaign_id", campaignId)
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
 
   const orderIds = (orders ?? []).map((o) => o.id);
   const itemsByOrder: Record<string, OrderItem[]> = {};
+  const contactsByOrder: Record<string, OrderContact> = {};
 
   if (orderIds.length > 0) {
     const { data: items, error: itemsError } = await supabase
@@ -248,11 +305,24 @@ export async function getAllOrdersAdmin(
     }
   }
 
-  return { orders: orders ?? [], itemsByOrder };
+  if (orderIds.length > 0) {
+    const { data: contacts, error: contactsError } = await supabase
+      .from("order_contacts")
+      .select("order_id, tenant_id, customer_phone, endereco")
+      .eq("tenant_id", tenantId)
+      .in("order_id", orderIds);
+    if (contactsError) throw contactsError;
+    for (const contact of contacts ?? []) {
+      contactsByOrder[contact.order_id] = contact;
+    }
+  }
+
+  return { orders: orders ?? [], itemsByOrder, contactsByOrder };
 }
 
 export async function getFinanceLedger(
   tenantId: string,
+  campaignId: string,
   limit = 200
 ): Promise<FinanceLedgerEntry[]> {
   const supabase = await createClient();
@@ -260,6 +330,7 @@ export async function getFinanceLedger(
     .from("finance_ledger")
     .select("*")
     .eq("tenant_id", tenantId)
+    .eq("campaign_id", campaignId)
     .order("data", { ascending: false })
     .limit(limit);
   if (error) throw error;
