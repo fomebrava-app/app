@@ -16,6 +16,7 @@ export function PdvGate({
   customizations,
   campaignOpen,
   pixChave,
+  reservaHabilitada,
 }: {
   tenant: string;
   token: string;
@@ -25,6 +26,7 @@ export function PdvGate({
   customizations: MenuCustomizations;
   campaignOpen: boolean;
   pixChave: string | null;
+  reservaHabilitada: boolean;
 }) {
   const [password, setPassword] = useState("");
   const [unlockedPassword, setUnlockedPassword] = useState<string | null>(null);
@@ -81,6 +83,7 @@ export function PdvGate({
               pdvToken={token}
               pdvPassword={unlockedPassword}
               pixChave={pixChave}
+              reservaHabilitada={reservaHabilitada}
             />
           ) : (
             <Card className="mx-auto max-w-md p-6 text-center">

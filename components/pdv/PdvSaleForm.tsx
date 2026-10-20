@@ -18,7 +18,7 @@ interface PdvCartItem {
   customization: CartCustomization;
 }
 
-type PaymentMethod = "dinheiro" | "pix_presencial";
+type PaymentMethod = "dinheiro" | "pix_presencial" | "reserva";
 
 interface Confirmation {
   pickupCode: string;
@@ -44,6 +44,7 @@ export function PdvSaleForm({
   pdvToken,
   pdvPassword,
   pixChave = null,
+  reservaHabilitada = false,
 }: {
   tenant: string;
   items: MenuItem[];
@@ -51,6 +52,7 @@ export function PdvSaleForm({
   pdvToken: string;
   pdvPassword: string;
   pixChave?: string | null;
+  reservaHabilitada?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<PdvCartItem[]>([]);
@@ -159,9 +161,10 @@ export function PdvSaleForm({
   }
 
   if (confirmation) {
+    const enviarPix = paymentMethod === "reserva" && Boolean(pixChave);
     const whatsappLink = buildWhatsAppLink({
       phone: customerPhone,
-      message: pixChave
+      message: enviarPix
         ? buildChargeMessage({
             pickupCode: confirmation.pickupCode,
             trackingUrl: confirmation.trackingUrl,
@@ -187,7 +190,7 @@ export function PdvSaleForm({
           <a href={whatsappLink} target="_blank" rel="noopener noreferrer">
             <Button variant="primary" className="w-full">
               <IconWhatsapp className="h-4 w-4" />{" "}
-              {pixChave ? "Enviar cobrança por WhatsApp" : "Enviar link por WhatsApp"}
+              {enviarPix ? "Enviar cobrança por WhatsApp" : "Enviar link por WhatsApp"}
             </Button>
           </a>
           <Button onClick={copyLink} className="w-full">
@@ -309,6 +312,7 @@ export function PdvSaleForm({
               onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
             >
               <option value="">Selecione...</option>
+              {reservaHabilitada && <option value="reserva">Reserva</option>}
               <option value="dinheiro">Dinheiro</option>
               <option value="pix_presencial">Pix</option>
             </Select>

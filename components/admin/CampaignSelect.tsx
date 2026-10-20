@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Select } from "@/components/ui";
 import type { Campaign } from "@/lib/types";
 
@@ -13,6 +13,7 @@ export function CampaignSelect({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   if (campaigns.length === 0) return null;
 
@@ -20,7 +21,11 @@ export function CampaignSelect({
     <Select
       aria-label="Campanha"
       value={selectedId}
-      onChange={(e) => router.push(`${pathname}?campanha=${e.target.value}`)}
+      onChange={(e) => {
+        const next = new URLSearchParams(searchParams.toString());
+        next.set("campanha", e.target.value);
+        router.push(`${pathname}?${next.toString()}`);
+      }}
       className="w-full sm:w-64"
     >
       {campaigns.map((campaign) => (

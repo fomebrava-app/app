@@ -4,7 +4,15 @@ import { Button, Card, SummaryCard } from "@/components/ui";
 import { IconBox, IconMoney, IconLayers, IconChefHat, IconPlus, IconPOS, IconCalculator } from "@/components/icons";
 import { formatBRL } from "@/lib/format";
 import { CampaignSelect } from "@/components/admin/CampaignSelect";
-import { getCampaigns, getDashboardStats, getTenantBySlug, pickCampaign } from "@/lib/queries";
+import { CampaignMovement } from "@/components/admin/CampaignMovement";
+import { parseMovementFilters, summarizeCampaignMovement } from "@/lib/campaign-movement";
+import {
+  getCampaignMovementSource,
+  getCampaigns,
+  getDashboardStats,
+  getTenantBySlug,
+  pickCampaign,
+} from "@/lib/queries";
 import Link from "next/link";
 
 export default async function AdminOverviewPage({
@@ -12,10 +20,10 @@ export default async function AdminOverviewPage({
   searchParams,
 }: {
   params: Promise<{ tenant: string }>;
-  searchParams: Promise<{ campanha?: string }>;
+  searchParams: Promise<{ campanha?: string; canal?: string; pdv?: string; situacao?: string }>;
 }) {
   const { tenant: tenantSlug } = await params;
-  const { campanha } = await searchParams;
+  const { campanha, canal, pdv, situacao } = await searchParams;
   const tenant = await getTenantBySlug(tenantSlug);
   if (!tenant) notFound();
 
@@ -27,6 +35,12 @@ export default async function AdminOverviewPage({
     selected?.status === "aberta"
   );
   const periodoHoje = selected?.status !== "encerrada";
+  const temCampanhaAberta = campaigns.some((campaign) => campaign.status === "aberta");
+  const filters = parseMovementFilters({ canal, pdv, situacao });
+  const source = selected ? await getCampaignMovementSource(tenant.id, selected.id) : null;
+  const movement = source
+    ? summarizeCampaignMovement(source.orders, source.items, filters)
+    : null;
 
   return (
     <AdminLayout
@@ -63,6 +77,13 @@ export default async function AdminOverviewPage({
       <Card className="mt-6 p-5">
         <p className="mb-4 text-sm font-semibold text-black">Ações rápidas</p>
         <div className="flex flex-wrap gap-2">
+          {!temCampanhaAberta && (
+            <Link href={`/${tenantSlug}/admin/configuracoes`}>
+              <Button variant="primary">
+                <IconPlus className="h-4 w-4" /> Criar campanha
+              </Button>
+            </Link>
+          )}
           <Link href={`/${tenantSlug}/admin/itens/novo`}>
             <Button variant="primary">
               <IconPlus className="h-4 w-4" /> Cadastrar item
@@ -85,6 +106,17 @@ export default async function AdminOverviewPage({
           </Link>
         </div>
       </Card>
+
+      {movement ? (
+        <CampaignMovement view={movement} filters={filters} />
+      ) : (
+        <Card className="mt-6 p-5">
+          <h2 className="text-lg font-semibold text-black">Movimento da campanha</h2>
+          <p className="mt-2 text-sm text-neutral-500">
+            Ainda não há campanha para ler o movimento. Crie uma campanha para começar.
+          </p>
+        </Card>
+      )}
     </AdminLayout>
   );
 }

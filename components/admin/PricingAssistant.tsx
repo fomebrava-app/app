@@ -24,10 +24,15 @@ const SHARED_COST_NAMES = [
   "Perdas e imprevistos já conhecidos",
 ];
 
+type ProductDraft = PricingProductInput & {
+  precoAplicado: number;
+  precoAplicadoManual: boolean;
+};
+
 function createProduct(
   template: PricingProductTemplate,
   prefix = `produto-${template.id}`
-): PricingProductInput {
+): ProductDraft {
   return {
     id: prefix,
     templateId: template.id,
@@ -42,10 +47,12 @@ function createProduct(
       valor: 0,
     })),
     pontosAtencao: template.attention_points,
+    precoAplicado: 0,
+    precoAplicadoManual: false,
   };
 }
 
-function createCustomProduct(): PricingProductInput {
+function createCustomProduct(): ProductDraft {
   const id = crypto.randomUUID();
   return {
     id,
@@ -59,6 +66,8 @@ function createCustomProduct(): PricingProductInput {
       { id: `${id}-ingrediente-0`, nome: "Ingredientes", valor: 0 },
     ],
     pontosAtencao: [],
+    precoAplicado: 0,
+    precoAplicadoManual: false,
   };
 }
 
@@ -105,7 +114,7 @@ export function PricingAssistant({
   const [orcamento, setOrcamento] = useState(1500);
   const [reserva, setReserva] = useState(10);
   const [metaArrecadacao, setMetaArrecadacao] = useState(0);
-  const [produtos, setProdutos] = useState<PricingProductInput[]>(() =>
+  const [produtos, setProdutos] = useState<ProductDraft[]>(() =>
     initialTemplates.map((template) => createProduct(template))
   );
   const [custosCompartilhados, setCustosCompartilhados] = useState<
@@ -143,7 +152,30 @@ export function PricingAssistant({
     [calculationInput]
   );
 
-  function updateProduct(id: string, changes: Partial<PricingProductInput>) {
+  const precoAplicadoPorProduto = useMemo(() => {
+    const mapa = new Map<string, number>();
+    for (const produto of produtos) {
+      const sugerido =
+        result.produtos.find((item) => item.id === produto.id)?.precoSugerido ?? 0;
+      mapa.set(
+        produto.id,
+        produto.precoAplicadoManual ? produto.precoAplicado : sugerido
+      );
+    }
+    return mapa;
+  }, [produtos, result.produtos]);
+
+  const receitaComPrecosAplicados = useMemo(
+    () =>
+      result.produtos.reduce(
+        (total, produto) =>
+          total + (precoAplicadoPorProduto.get(produto.id) ?? 0) * produto.quantidade,
+        0
+      ),
+    [precoAplicadoPorProduto, result.produtos]
+  );
+
+  function updateProduct(id: string, changes: Partial<ProductDraft>) {
     setProdutos((current) =>
       current.map((produto) => (produto.id === id ? { ...produto, ...changes } : produto))
     );
@@ -337,7 +369,7 @@ export function PricingAssistant({
           {produtos.map((produto, productIndex) => (
             <Card key={produto.id} className="border-neutral-300 p-4">
               <div className="flex items-start justify-between gap-3">
-                <div className="grid flex-1 grid-cols-1 gap-3 md:grid-cols-4">
+                <div className="grid flex-1 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
                   <Field label={`Produto ${productIndex + 1}`}>
                     <Input value={produto.nome} onChange={(event) => updateProduct(produto.id, { nome: event.target.value })} />
                   </Field>
@@ -355,6 +387,17 @@ export function PricingAssistant({
                   </Field>
                   <Field label="Média de preço na região">
                     <NumericInput value={produto.precoMercado} onChange={(value) => updateProduct(produto.id, { precoMercado: value })} />
+                  </Field>
+                  <Field label="Preço aplicado">
+                    <NumericInput
+                      value={precoAplicadoPorProduto.get(produto.id) ?? 0}
+                      onChange={(value) =>
+                        updateProduct(produto.id, {
+                          precoAplicado: value,
+                          precoAplicadoManual: true,
+                        })
+                      }
+                    />
                   </Field>
                 </div>
                 <button
@@ -438,10 +481,11 @@ export function PricingAssistant({
 
         {error && <p className="rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
           <SummaryCard label="Custo planejado" value={formatBRL(result.custoPlanejadoTotal)} hint={`Saldo do orçamento: ${formatBRL(result.saldoOrcamento)}`} icon={<IconMoney className="h-5 w-5" />} />
           <SummaryCard label="Receita necessária" value={formatBRL(result.receitaNecessaria)} hint="Custo + proteção + meta da causa" icon={<IconCalculator className="h-5 w-5" />} />
           <SummaryCard label="Receita com preços sugeridos" value={formatBRL(result.receitaProjetada)} hint={`${result.unidadesEstimadasParaMeta} de ${result.totalUnidades} unidades no mix estimado`} icon={<IconMoney className="h-5 w-5" />} />
+          <SummaryCard label="Receita com preços aplicados" value={formatBRL(receitaComPrecosAplicados)} hint="Preço aplicado × unidades previstas" icon={<IconMoney className="h-5 w-5" />} />
           <SummaryCard label="Excedente para proteção e causa" value={formatBRL(result.excedenteProjetado)} hint="Antes de perdas ou custos não informados" icon={<IconMoney className="h-5 w-5" />} />
         </div>
 
@@ -461,7 +505,7 @@ export function PricingAssistant({
 
         <Card className="overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table className="w-full min-w-[900px] text-left text-sm">
               <thead className="border-b border-neutral-200 bg-neutral-50 text-xs uppercase tracking-wide text-neutral-500">
                 <tr>
                   <th className="px-4 py-3">Produto</th>
@@ -469,11 +513,15 @@ export function PricingAssistant({
                   <th className="px-4 py-3 text-right">Custo/un.</th>
                   <th className="px-4 py-3 text-right">Média regional</th>
                   <th className="px-4 py-3 text-right">Preço sugerido</th>
+                  <th className="px-4 py-3 text-right">Preço aplicado</th>
                   <th className="px-4 py-3 text-right">Receita prevista</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
-                {result.produtos.map((produto) => (
+                {result.produtos.map((produto) => {
+                  const precoAplicado = precoAplicadoPorProduto.get(produto.id) ?? 0;
+                  const receitaPrevista = precoAplicado * produto.quantidade;
+                  return (
                   <tr key={produto.id}>
                     <td className="px-4 py-3">
                       <p className="text-black">{produto.nome}</p>
@@ -488,9 +536,11 @@ export function PricingAssistant({
                         {produto.diferencaMercadoPercentual > 0 ? "+" : ""}{produto.diferencaMercadoPercentual}% da média
                       </p>
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold">{formatBRL(produto.receitaProjetada)}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-black">{formatBRL(precoAplicado)}</td>
+                    <td className="px-4 py-3 text-right font-semibold">{formatBRL(receitaPrevista)}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

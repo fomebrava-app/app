@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import type { MovementItem, MovementOrder } from "@/lib/campaign-movement";
 import type {
   Campaign,
   EventSettings,
@@ -226,6 +227,42 @@ export async function getOpenCampaign(tenantId: string): Promise<Campaign | null
     .maybeSingle();
   if (error) throw error;
   return data;
+}
+
+export async function getCampaignMovementSource(
+  tenantId: string,
+  campaignId: string
+): Promise<{ orders: MovementOrder[]; items: MovementItem[] }> {
+  const supabase = await createClient();
+  const orders: MovementOrder[] = [];
+
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from("orders")
+      .select(
+        "id, channel, payment_method, payment_status, status, fulfillment, total, pdv_label_snapshot"
+      )
+      .eq("tenant_id", tenantId)
+      .eq("campaign_id", campaignId)
+      .range(from, from + 999);
+    if (error) throw error;
+    orders.push(...((data ?? []) as MovementOrder[]));
+    if (!data || data.length < 1000) break;
+  }
+
+  const items: MovementItem[] = [];
+  const ids = orders.map((order) => order.id);
+  for (let index = 0; index < ids.length; index += 150) {
+    const slice = ids.slice(index, index + 150);
+    const { data, error } = await supabase
+      .from("order_items")
+      .select("order_id, nome_snapshot, quantidade, subtotal")
+      .in("order_id", slice);
+    if (error) throw error;
+    items.push(...((data ?? []) as MovementItem[]));
+  }
+
+  return { orders, items };
 }
 
 export function pickCampaign(

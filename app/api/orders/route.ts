@@ -16,7 +16,7 @@ interface CreateOrderBody {
   channel: "online" | "pdv";
   tenant?: string;
   items: OrderItemInput[];
-  payment_method?: "dinheiro" | "pix_presencial";
+  payment_method?: "dinheiro" | "pix_presencial" | "reserva";
   customer_name?: string;
   customer_phone?: string;
   fulfillment?: "retirada" | "entrega";
@@ -40,7 +40,10 @@ export async function POST(request: Request) {
     if (!body.pdv_token || !body.pdv_password) {
       return NextResponse.json({ error: "Autenticação do PDV ausente." }, { status: 401 });
     }
-    if (!body.payment_method || !["dinheiro", "pix_presencial"].includes(body.payment_method)) {
+    if (
+      !body.payment_method ||
+      !["dinheiro", "pix_presencial", "reserva"].includes(body.payment_method)
+    ) {
       return NextResponse.json({ error: "Forma de pagamento inválida." }, { status: 400 });
     }
 

@@ -75,7 +75,8 @@ export type PaymentMethod =
   | "infinitepay_pix"
   | "dinheiro"
   | "pix_presencial"
-  | "pix";
+  | "pix"
+  | "reserva";
 
 export type CampaignStatus = "aberta" | "encerrada";
 

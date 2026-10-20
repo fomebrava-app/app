@@ -40,6 +40,7 @@ export default async function PdvTokenPage({
       customizations={customizations}
       campaignOpen={!!openCampaign}
       pixChave={openCampaign?.recebimento === "pix" ? openCampaign.pix_chave : null}
+      reservaHabilitada={openCampaign?.reserva_antes_pagamento === true}
     />
   );
 }
